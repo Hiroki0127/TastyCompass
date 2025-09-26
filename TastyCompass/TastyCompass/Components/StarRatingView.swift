@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 /// A SwiftUI view that displays star ratings
 struct StarRatingView: View {
@@ -123,12 +124,12 @@ struct RestaurantRatingView: View {
             if showStatus {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(place.isOpen ? .green : .red)
+                        .fill(place.isOpen ? Color.green : Color.red)
                         .frame(width: 6, height: 6)
                     
                     Text(place.statusText)
                         .font(.caption2)
-                        .foregroundColor(place.isOpen ? .green : .red)
+                        .foregroundColor(place.isOpen ? Color.green : Color.red)
                 }
             }
         }
@@ -177,7 +178,7 @@ struct CompactRatingView: View {
             
             // Status indicator
             Circle()
-                .fill(isOpen ? .green : .red)
+                        .fill(isOpen ? Color.green : Color.red)
                 .frame(width: 4, height: 4)
         }
     }
@@ -257,12 +258,12 @@ struct RatingSummaryView: View {
                 
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(place.isOpen ? .green : .red)
+                        .fill(place.isOpen ? Color.green : Color.red)
                         .frame(width: 8, height: 8)
                     
                     Text(place.statusText)
                         .font(.subheadline)
-                        .foregroundColor(place.isOpen ? .green : .red)
+                        .foregroundColor(place.isOpen ? Color.green : Color.red)
                 }
             }
         }

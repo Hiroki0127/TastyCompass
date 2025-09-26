@@ -178,11 +178,11 @@ struct Context: Codable {
 
 /// Geographic bounds
 struct GeoBounds: Codable {
-    let circle: Circle?
+    let circle: CircleBounds?
 }
 
 /// Circle bounds
-struct Circle: Codable {
+struct CircleBounds: Codable {
     let center: Coordinate
     let radius: Int
 }

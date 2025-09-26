@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 /// Manages favorite restaurants with persistent local storage
 class FavoritesManager: ObservableObject {

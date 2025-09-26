@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import CoreLocation
+import Foundation
 
 /// Main view for searching and displaying restaurants
 struct SearchView: View {
@@ -316,7 +317,7 @@ struct SearchView: View {
         }
     }
     
-    private var cancellables = Set<AnyCancellable>()
+    @State private var cancellables = Set<AnyCancellable>()
 }
 
 // MARK: - Filter Chip

@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 /// A SwiftUI view that displays a restaurant in a list row
 struct BusinessRowView: View {
@@ -81,12 +82,12 @@ struct BusinessRowView: View {
                         
                         HStack(spacing: 4) {
                             Circle()
-                                .fill(place.isOpen ? .green : .red)
+                                .fill(place.isOpen ? Color.green : Color.red)
                                 .frame(width: 6, height: 6)
                             
                             Text(place.statusText)
                                 .font(.caption)
-                                .foregroundColor(place.isOpen ? .green : .red)
+                                .foregroundColor(place.isOpen ? Color.green : Color.red)
                         }
                     }
                 }
@@ -301,12 +302,12 @@ struct BusinessCardView: View {
                         
                         HStack(spacing: 4) {
                             Circle()
-                                .fill(place.isOpen ? .green : .red)
+                                .fill(place.isOpen ? Color.green : Color.red)
                                 .frame(width: 6, height: 6)
                             
                             Text(place.statusText)
                                 .font(.caption)
-                                .foregroundColor(place.isOpen ? .green : .red)
+                                .foregroundColor(place.isOpen ? Color.green : Color.red)
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import Combine
+import SwiftUI
 
 /// Manages image caching with both memory and disk storage
 class ImageCacheManager: ObservableObject {
@@ -119,7 +120,9 @@ class ImageCacheManager: ObservableObject {
             .compactMap { UIImage(data: $0) }
             .handleEvents(receiveOutput: { [weak self] image in
                 // Cache the downloaded image
-                self?.cacheImage(image, key: cacheKey)
+                if let image = image {
+                    self?.cacheImage(image, key: cacheKey)
+                }
             })
             .replaceError(with: nil)
             .receive(on: DispatchQueue.main)
@@ -189,11 +192,11 @@ class ImageCacheManager: ObservableObject {
     /// Cleans up old cache files
     private func cleanupOldCacheFiles() {
         do {
-            let cacheFiles = try fileManager.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: [.modificationDateKey])
+            let cacheFiles = try fileManager.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: [.contentModificationDateKey])
             
             for file in cacheFiles {
                 let attributes = try fileManager.attributesOfItem(atPath: file.path)
-                if let modificationDate = attributes[.modificationDate] as? Date,
+                if let modificationDate = attributes[FileAttributeKey.modificationDate] as? Date,
                    Date().timeIntervalSince(modificationDate) > maxCacheAge {
                     try fileManager.removeItem(at: file)
                 }
@@ -210,7 +213,7 @@ class ImageCacheManager: ObservableObject {
             return cacheFiles.reduce(0) { total, file in
                 do {
                     let attributes = try fileManager.attributesOfItem(atPath: file.path)
-                    return total + (attributes[.fileSize] as? Int64 ?? 0)
+                    return total + (attributes[FileAttributeKey.size] as? Int64 ?? 0)
                 } catch {
                     return total
                 }

@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import Foundation
 
 /// A SwiftUI view that loads and caches images asynchronously
 struct CachedAsyncImage<Content: View, Placeholder: View>: View {

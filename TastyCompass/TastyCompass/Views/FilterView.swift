@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 /// View for setting search filters and sorting options
 struct FilterView: View {

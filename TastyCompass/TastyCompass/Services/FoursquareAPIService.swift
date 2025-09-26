@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import CoreLocation
+import UIKit
 
 /// Service for interacting with Foursquare Places API
 class FoursquareAPIService: ObservableObject {

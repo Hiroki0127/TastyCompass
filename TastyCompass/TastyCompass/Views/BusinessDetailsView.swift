@@ -1,6 +1,7 @@
 import SwiftUI
 import MapKit
 import Combine
+import UIKit
 
 /// Detailed view for displaying restaurant information
 struct BusinessDetailsView: View {
@@ -251,12 +252,12 @@ struct BusinessDetailsView: View {
             
             HStack {
                 Circle()
-                    .fill(place.isOpen ? .green : .red)
+                    .fill(place.isOpen ? Color.green : Color.red)
                     .frame(width: 8, height: 8)
                 
                 Text(place.statusText)
                     .font(.subheadline)
-                    .foregroundColor(place.isOpen ? .green : .red)
+                    .foregroundColor(place.isOpen ? Color.green : Color.red)
                 
                 Spacer()
             }
@@ -407,7 +408,7 @@ struct BusinessDetailsView: View {
         return text
     }
     
-    private var cancellables = Set<AnyCancellable>()
+    @State private var cancellables = Set<AnyCancellable>()
 }
 
 // MARK: - Contact Row
@@ -454,7 +455,7 @@ struct StatusBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Circle()
-                .fill(isOpen ? .green : .red)
+                .fill(isOpen ? Color.green : Color.red)
                 .frame(width: 8, height: 8)
             
             Text(isOpen ? "Open" : "Closed")
@@ -504,11 +505,11 @@ struct MapView: View {
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     
-    func makeUIViewController(context: Context) -> UIActivityViewController {
+    func makeUIViewController(context: UIViewControllerRepresentableContext<ShareSheet>) -> UIActivityViewController {
         UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
     
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: UIViewControllerRepresentableContext<ShareSheet>) {}
 }
 
 // MARK: - Preview

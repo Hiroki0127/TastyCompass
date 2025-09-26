@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import Foundation
 
 /// View for displaying and managing favorite restaurants
 struct FavoritesView: View {

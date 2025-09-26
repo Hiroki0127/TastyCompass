@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Manages application configuration and API credentials
 class ConfigurationManager {
