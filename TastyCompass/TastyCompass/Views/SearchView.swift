@@ -16,6 +16,7 @@ struct SearchView: View {
     @State private var showingFilters = false
     @State private var currentFilter = RestaurantFilter()
     @State private var searchCancellable: AnyCancellable?
+    @State private var selectedRestaurant: Place?
     
     var body: some View {
         NavigationView {
@@ -50,6 +51,9 @@ struct SearchView: View {
                 FilterView(filter: $currentFilter) {
                     performSearch()
                 }
+            }
+            .sheet(item: $selectedRestaurant) { restaurant in
+                BusinessDetailsView(place: restaurant)
             }
             .onAppear {
                 requestLocationPermission()
@@ -164,8 +168,7 @@ struct SearchView: View {
         List {
             ForEach(restaurants) { restaurant in
                 BusinessRowView(place: restaurant) {
-                    // Navigate to restaurant details
-                    // This will be implemented when we create BusinessDetailsView
+                    selectedRestaurant = restaurant
                 } onFavoriteTap: {
                     // Favorite action is handled by BusinessRowView
                 }
@@ -240,6 +243,12 @@ struct SearchView: View {
                     performSearch()
                 }
                 .buttonStyle(.borderedProminent)
+                
+                Button("Test API (San Francisco)") {
+                    searchText = "restaurant"
+                    performSearch()
+                }
+                .buttonStyle(.bordered)
             }
         }
         .padding()
