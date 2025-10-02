@@ -200,22 +200,39 @@ struct SearchView: View {
     
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
+            Image(systemName: message.contains("Location") || message.contains("location") ? "location.slash" : "exclamationmark.triangle")
                 .font(.system(size: 48))
                 .foregroundColor(.orange)
             
-            Text("Oops! Something went wrong")
+            Text(message.contains("Location") || message.contains("location") ? "Location Access Needed" : "Oops! Something went wrong")
                 .font(.headline)
             
             Text(message)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal)
             
-            Button("Try Again") {
-                performSearch()
+            VStack(spacing: 12) {
+                if message.contains("denied") || message.contains("permission") {
+                    Button("Open Settings") {
+                        locationManager.openSettings()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    Button("Search San Francisco Instead") {
+                        errorMessage = nil
+                        performSearch()
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    Button("Try Again") {
+                        errorMessage = nil
+                        requestLocationPermission()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
             }
-            .buttonStyle(.borderedProminent)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -266,9 +283,20 @@ struct SearchView: View {
     private func requestLocationPermission() {
         locationManager.requestPermission { granted in
             if granted {
-                performSearch()
+                // Wait a moment for location to be acquired
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    if self.locationManager.currentLocation != nil {
+                        self.performSearch()
+                    } else {
+                        self.errorMessage = "Acquiring your location..."
+                        // Try again after a bit more time
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            self.performSearch()
+                        }
+                    }
+                }
             } else {
-                errorMessage = "Location permission is required to find nearby restaurants"
+                errorMessage = locationManager.locationError ?? "Location permission is required to find nearby restaurants"
             }
         }
     }
@@ -477,51 +505,88 @@ struct FilterChip: View {
 class LocationManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
     @Published var currentLocation: CLLocation?
-    @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    @Published var authorizationStatus: CLAuthorizationStatus
+    @Published var locationError: String?
+    
+    private var permissionCompletion: ((Bool) -> Void)?
     
     override init() {
+        self.authorizationStatus = CLLocationManager.authorizationStatus()
         super.init()
         locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters // Good balance of accuracy and battery
+        locationManager.distanceFilter = 100 // Update every 100 meters
+        
+        // Start updating location if already authorized
+        if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
+            locationManager.startUpdatingLocation()
+        }
     }
     
     func requestPermission(completion: @escaping (Bool) -> Void) {
+        permissionCompletion = completion
+        
         switch authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.startUpdatingLocation()
             completion(true)
         case .denied, .restricted:
+            locationError = "Location access denied. Please enable location services in Settings."
             completion(false)
         case .notDetermined:
+            print("📍 Requesting location permission...")
             locationManager.requestWhenInUseAuthorization()
-            // Completion will be called in delegate method
         @unknown default:
             completion(false)
+        }
+    }
+    
+    func openSettings() {
+        if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(settingsURL)
         }
     }
 }
 
 extension LocationManager: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        currentLocation = locations.last
+        guard let location = locations.last else { return }
+        
+        // Only update if the location is recent and accurate
+        let age = abs(location.timestamp.timeIntervalSinceNow)
+        if age < 15 && location.horizontalAccuracy >= 0 {
+            currentLocation = location
+            locationError = nil
+            print("📍 Location updated: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+        }
     }
     
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("❌ Location error: \(error.localizedDescription)")
+        locationError = error.localizedDescription
+    }
+    
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        // iOS 14+ delegate method
+        let status = manager.authorizationStatus
+        print("📍 Authorization status changed: \(status.rawValue)")
         authorizationStatus = status
         
         switch status {
         case .authorizedWhenInUse, .authorizedAlways:
             locationManager.startUpdatingLocation()
+            permissionCompletion?(true)
+            permissionCompletion = nil
         case .denied, .restricted:
-            break
+            locationError = "Location access denied. Please enable location services in Settings."
+            permissionCompletion?(false)
+            permissionCompletion = nil
         case .notDetermined:
             break
         @unknown default:
-            break
+            permissionCompletion?(false)
+            permissionCompletion = nil
         }
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error.localizedDescription)")
     }
 }
 
