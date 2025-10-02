@@ -142,10 +142,20 @@ struct PlacePhoto: Codable, Hashable {
     let height: Int
     
     var photoURL: String {
+        // If suffix is empty, prefix contains the full URL (Google Places)
+        if suffix.isEmpty {
+            return prefix
+        }
+        // Otherwise use Foursquare-style URL construction
         return "\(prefix)original\(suffix)"
     }
     
     var thumbnailURL: String {
+        // If suffix is empty, prefix contains the full URL (Google Places)
+        if suffix.isEmpty {
+            return prefix
+        }
+        // Otherwise use Foursquare-style URL construction
         return "\(prefix)300x300\(suffix)"
     }
     

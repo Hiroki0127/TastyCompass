@@ -255,28 +255,19 @@ struct SearchView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
             
-            if searchText.isEmpty {
-                Button("Search Nearby") {
-                    searchText = ""
+            if searchText.isEmpty && restaurants.isEmpty {
+                Button {
                     requestLocationPermission()
                     // Wait a bit for location to be acquired
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         performSearch()
                     }
+                } label: {
+                    Label("Search Nearby", systemImage: "location.fill")
+                        .font(.headline)
                 }
                 .buttonStyle(.borderedProminent)
-                
-                Button("Test API (San Francisco)") {
-                    searchText = "restaurant"
-                    performSearch()
-                }
-                .buttonStyle(.bordered)
-                
-                Button("Load Mock Data") {
-                    loadMockData()
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.green)
+                .padding(.top, 8)
             }
         }
         .padding()
@@ -375,106 +366,6 @@ struct SearchView: View {
     }
     
     @State private var cancellables = Set<AnyCancellable>()
-    
-    // MARK: - Mock Data for Testing
-    
-    private func loadMockData() {
-        print("🎭 Loading mock data...")
-        isLoading = true
-        errorMessage = nil
-        
-        // Simulate API delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            restaurants = [
-                Place(
-                    fsqId: "mock1",
-                    name: "The French Laundry",
-                    categories: [
-                        Category(id: 1, name: "French", icon: CategoryIcon(prefix: "https://ss3.4sqi.net/img/categories_v2/food/", suffix: ".png"))
-                    ],
-                    distance: 500,
-                    geocodes: Geocodes(main: Coordinate(latitude: 37.7749, longitude: -122.4194), roof: nil),
-                    location: PlaceLocation(
-                        address: "6640 Washington St",
-                        crossStreet: nil,
-                        locality: "Yountville",
-                        region: "CA",
-                        postcode: "94599",
-                        country: "US",
-                        formattedAddress: "6640 Washington St, Yountville, CA 94599"
-                    ),
-                    popularity: nil,
-                    price: 4,
-                    rating: 4.8,
-                    stats: PlaceStats(totalRatings: 1250, totalTips: 89),
-                    verified: nil,
-                    hours: PlaceHours(openNow: true, regular: nil),
-                    photos: nil,
-                    tel: "+1-707-944-2380",
-                    website: "https://thomaskeller.com/tfl",
-                    socialMedia: nil
-                ),
-                Place(
-                    fsqId: "mock2",
-                    name: "Swan Oyster Depot",
-                    categories: [
-                        Category(id: 2, name: "Seafood", icon: CategoryIcon(prefix: "https://ss3.4sqi.net/img/categories_v2/food/", suffix: ".png"))
-                    ],
-                    distance: 1200,
-                    geocodes: Geocodes(main: Coordinate(latitude: 37.7849, longitude: -122.4094), roof: nil),
-                    location: PlaceLocation(
-                        address: "1517 Polk St",
-                        crossStreet: nil,
-                        locality: "San Francisco",
-                        region: "CA",
-                        postcode: "94109",
-                        country: "US",
-                        formattedAddress: "1517 Polk St, San Francisco, CA 94109"
-                    ),
-                    popularity: nil,
-                    price: 2,
-                    rating: 4.5,
-                    stats: PlaceStats(totalRatings: 890, totalTips: 45),
-                    verified: nil,
-                    hours: PlaceHours(openNow: false, regular: nil),
-                    photos: nil,
-                    tel: "+1-415-673-1101",
-                    website: nil,
-                    socialMedia: nil
-                ),
-                Place(
-                    fsqId: "mock3",
-                    name: "State Bird Provisions",
-                    categories: [
-                        Category(id: 3, name: "American", icon: CategoryIcon(prefix: "https://ss3.4sqi.net/img/categories_v2/food/", suffix: ".png"))
-                    ],
-                    distance: 800,
-                    geocodes: Geocodes(main: Coordinate(latitude: 37.7649, longitude: -122.4294), roof: nil),
-                    location: PlaceLocation(
-                        address: "1529 Fillmore St",
-                        crossStreet: nil,
-                        locality: "San Francisco",
-                        region: "CA",
-                        postcode: "94115",
-                        country: "US",
-                        formattedAddress: "1529 Fillmore St, San Francisco, CA 94115"
-                    ),
-                    popularity: nil,
-                    price: 3,
-                    rating: 4.7,
-                    stats: PlaceStats(totalRatings: 1100, totalTips: 67),
-                    verified: nil,
-                    hours: PlaceHours(openNow: true, regular: nil),
-                    photos: nil,
-                    tel: "+1-415-795-1272",
-                    website: "https://statebirdsf.com",
-                    socialMedia: nil
-                )
-            ]
-            isLoading = false
-            print("✅ Loaded \(restaurants.count) mock restaurants")
-        }
-    }
 }
 
 // MARK: - Filter Chip

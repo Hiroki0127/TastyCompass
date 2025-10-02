@@ -215,6 +215,9 @@ struct GoogleSearchParameters {
 extension GooglePlace {
     /// Converts GooglePlace to our existing Place model for compatibility
     func toPlace() -> Place {
+        // Get API key from configuration
+        let apiKey = ConfigurationManager.shared.googlePlacesAPIKey
+        
         return Place(
             fsqId: self.placeId,
             name: self.name,
@@ -240,10 +243,13 @@ extension GooglePlace {
             verified: nil,
             hours: PlaceHours(openNow: self.isOpen, regular: nil),
             photos: self.photos?.map { photo in
-                PlacePhoto(
+                // Construct proper Google Places photo URL
+                let photoURL = "https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=\(photo.photoReference)&key=\(apiKey)"
+                print("📸 Photo URL created: \(photoURL.prefix(100))...")
+                return PlacePhoto(
                     id: photo.photoReference,
                     createdAt: "",
-                    prefix: "https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=\(photo.photoReference)&key=",
+                    prefix: photoURL,
                     suffix: "",
                     width: photo.width,
                     height: photo.height

@@ -24,23 +24,24 @@ struct BusinessRowView: View {
             onTap?()
         }) {
             HStack(spacing: 12) {
-                // Restaurant image
+                // Restaurant image - smaller size
                 RestaurantImageView(
                     place: place,
-                    size: .medium,
+                    size: .thumbnail,
                     cornerRadius: 8
                 )
-                .frame(width: 80, height: 80)
+                .frame(width: 60, height: 60)
+                .clipped()
                 
                 // Restaurant info
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     // Name and category
                     VStack(alignment: .leading, spacing: 2) {
                         Text(place.name)
-                            .font(.headline)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
                             .foregroundColor(.primary)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
+                            .lineLimit(1)
                         
                         if let category = place.primaryCategory {
                             Text(category.name)
@@ -50,10 +51,8 @@ struct BusinessRowView: View {
                         }
                     }
                     
-                    Spacer()
-                    
                     // Rating and distance
-                    HStack {
+                    HStack(spacing: 8) {
                         CompactRatingView(
                             rating: place.rating,
                             reviewCount: place.stats?.totalRatings,
@@ -70,12 +69,12 @@ struct BusinessRowView: View {
                     }
                     
                     // Price and status
-                    HStack {
+                    HStack(spacing: 8) {
                         if let price = place.price {
                             Text(place.priceLevel)
                                 .font(.caption)
                                 .fontWeight(.medium)
-                                .foregroundColor(.primary)
+                                .foregroundColor(.orange)
                         }
                         
                         Spacer()
@@ -86,11 +85,12 @@ struct BusinessRowView: View {
                                 .frame(width: 6, height: 6)
                             
                             Text(place.statusText)
-                                .font(.caption)
+                                .font(.caption2)
                                 .foregroundColor(place.isOpen ? Color.green : Color.red)
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
                 // Favorite button
                 Button(action: {
@@ -98,7 +98,7 @@ struct BusinessRowView: View {
                     onFavoriteTap?()
                 }) {
                     Image(systemName: favoritesManager.isFavorite(place) ? "heart.fill" : "heart")
-                        .font(.title2)
+                        .font(.title3)
                         .foregroundColor(favoritesManager.isFavorite(place) ? .red : .gray)
                 }
                 .buttonStyle(PlainButtonStyle())
