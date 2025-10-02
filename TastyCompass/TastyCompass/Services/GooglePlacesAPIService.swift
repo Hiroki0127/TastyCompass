@@ -16,11 +16,20 @@ class GooglePlacesAPIService: ObservableObject {
         near location: CLLocation,
         query: String? = nil
     ) -> AnyPublisher<[Place], Error> {
+        // Combine user query with category filters
+        var searchKeyword = query
+        if !filter.categories.isEmpty {
+            // Add category keywords to the search
+            let categoryKeywords = filter.categories.joined(separator: " ")
+            searchKeyword = searchKeyword.map { "\($0) \(categoryKeywords)" } ?? categoryKeywords
+            print("🔍 Searching with keywords: \(searchKeyword ?? "")")
+        }
+        
         let parameters = GoogleSearchParameters(
             location: "\(location.coordinate.latitude),\(location.coordinate.longitude)",
             radius: Int(filter.maxDistance * 1609), // Convert miles to meters
             type: "restaurant",
-            keyword: query,
+            keyword: searchKeyword,
             minPrice: filter.priceRange.min,
             maxPrice: filter.priceRange.max,
             openNow: filter.openNow
@@ -29,7 +38,7 @@ class GooglePlacesAPIService: ObservableObject {
         return searchPlaces(parameters: parameters)
             .map { googlePlaces in
                 // Convert Google Places to our Place model and calculate distances
-                return googlePlaces.map { googlePlace in
+                var places = googlePlaces.map { googlePlace -> Place in
                     var place = googlePlace.toPlace()
                     // Calculate distance from user location
                     let placeLocation = CLLocation(
@@ -57,6 +66,42 @@ class GooglePlacesAPIService: ObservableObject {
                         socialMedia: place.socialMedia
                     )
                 }
+                
+                // Apply client-side filtering
+                let originalCount = places.count
+                
+                places = places.filter { place in
+                    // Filter by minimum rating
+                    if filter.minRating > 0 {
+                        guard let rating = place.rating, rating >= filter.minRating else {
+                            return false
+                        }
+                    }
+                    
+                    // Note: Category filtering is done via keyword search, not client-side
+                    // because Google Places API doesn't provide cuisine-specific categories
+                    
+                    return true
+                }
+                
+                if filter.minRating > 0 {
+                    print("⭐ Rating filter: \(filter.minRating)+ stars - Filtered from \(originalCount) to \(places.count) restaurants")
+                }
+                
+                // Apply sorting
+                switch filter.sortBy {
+                case .distance:
+                    places.sort { ($0.distance ?? Int.max) < ($1.distance ?? Int.max) }
+                    print("📏 Sorted by: Distance")
+                case .rating:
+                    places.sort { ($0.rating ?? 0) > ($1.rating ?? 0) }
+                    print("⭐ Sorted by: Rating")
+                case .popularity:
+                    places.sort { ($0.stats?.totalRatings ?? 0) > ($1.stats?.totalRatings ?? 0) }
+                    print("🔥 Sorted by: Popularity (total ratings)")
+                }
+                
+                return places
             }
             .eraseToAnyPublisher()
     }

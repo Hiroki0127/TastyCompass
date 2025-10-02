@@ -56,7 +56,8 @@ struct SearchView: View {
                 BusinessDetailsView(place: restaurant)
             }
             .onAppear {
-                requestLocationPermission()
+                // Just check location status, don't auto-search
+                checkLocationStatus()
             }
         }
     }
@@ -257,7 +258,11 @@ struct SearchView: View {
             if searchText.isEmpty {
                 Button("Search Nearby") {
                     searchText = ""
-                    performSearch()
+                    requestLocationPermission()
+                    // Wait a bit for location to be acquired
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        performSearch()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 
@@ -280,22 +285,21 @@ struct SearchView: View {
     
     // MARK: - Private Methods
     
+    private func checkLocationStatus() {
+        // Just check if we need to request permission, but don't auto-search
+        if locationManager.authorizationStatus == .notDetermined {
+            print("📍 Location permission not determined yet")
+        } else if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
+            print("📍 Location permission denied or restricted")
+        } else {
+            // Permission granted, start updating location in background
+            print("📍 Location permission already granted")
+        }
+    }
+    
     private func requestLocationPermission() {
         locationManager.requestPermission { granted in
-            if granted {
-                // Wait a moment for location to be acquired
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    if self.locationManager.currentLocation != nil {
-                        self.performSearch()
-                    } else {
-                        self.errorMessage = "Acquiring your location..."
-                        // Try again after a bit more time
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            self.performSearch()
-                        }
-                    }
-                }
-            } else {
+            if !granted {
                 errorMessage = locationManager.locationError ?? "Location permission is required to find nearby restaurants"
             }
         }
