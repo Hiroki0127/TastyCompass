@@ -29,56 +29,47 @@ class ConfigurationManager {
         return configData[key] as? String
     }
     
-    // MARK: - Foursquare API Configuration
+    // MARK: - Google Places API Configuration
     
-    /// Foursquare API Key (Client ID)
-    var foursquareAPIKey: String {
-        guard let key = getStringValue(for: "FoursquareAPIKey"),
-              key != "YOUR_FOURSQUARE_API_KEY_HERE" else {
-            fatalError("❌ Foursquare API Key not configured. Please update Config.plist with your actual API key.")
+    /// Google Places API Key
+    var googlePlacesAPIKey: String {
+        guard let key = getStringValue(for: "GooglePlacesAPIKey"),
+              key != "YOUR_GOOGLE_PLACES_API_KEY_HERE" else {
+            fatalError("❌ Google Places API Key not configured. Please update Config.plist with your actual API key.")
         }
         return key
     }
     
-    /// Foursquare API Secret (Client Secret)
-    var foursquareAPISecret: String {
-        guard let secret = getStringValue(for: "FoursquareAPISecret"),
-              secret != "YOUR_FOURSQUARE_API_SECRET_HERE" else {
-            fatalError("❌ Foursquare API Secret not configured. Please update Config.plist with your actual API secret.")
-        }
-        return secret
+    /// Google Places API Base URL
+    var googlePlacesBaseURL: String {
+        return getStringValue(for: "GooglePlacesBaseURL") ?? "https://maps.googleapis.com/maps/api/place"
     }
     
-    /// Foursquare API Base URL
-    var foursquareBaseURL: String {
-        return getStringValue(for: "FoursquareBaseURL") ?? "https://api.foursquare.com/v3"
+    /// Google Places Search Endpoint
+    var googlePlacesSearchEndpoint: String {
+        return getStringValue(for: "GooglePlacesSearchEndpoint") ?? "/nearbysearch/json"
     }
     
-    /// Foursquare Places Search Endpoint
-    var foursquareSearchEndpoint: String {
-        return getStringValue(for: "FoursquareSearchEndpoint") ?? "/places/search"
+    /// Google Places Details Endpoint
+    var googlePlacesDetailsEndpoint: String {
+        return getStringValue(for: "GooglePlacesDetailsEndpoint") ?? "/details/json"
     }
     
-    /// Foursquare Place Details Endpoint
-    var foursquarePlaceEndpoint: String {
-        return getStringValue(for: "FoursquarePlaceEndpoint") ?? "/places"
-    }
-    
-    /// Foursquare Photos Endpoint
-    var foursquarePhotoEndpoint: String {
-        return getStringValue(for: "FoursquarePhotoEndpoint") ?? "/places"
+    /// Google Places Photo Endpoint
+    var googlePlacesPhotoEndpoint: String {
+        return getStringValue(for: "GooglePlacesPhotoEndpoint") ?? "/photo"
     }
     
     // MARK: - Helper Methods
     
-    /// Constructs full URL for Foursquare API endpoints
-    func foursquareURL(for endpoint: String) -> String {
-        return "\(foursquareBaseURL)\(endpoint)"
+    /// Constructs full URL for Google Places API endpoints
+    func googlePlacesURL(for endpoint: String) -> String {
+        return "\(googlePlacesBaseURL)\(endpoint)"
     }
     
     /// Validates that all required configuration is present
     func validateConfiguration() -> Bool {
-        let requiredKeys = ["FoursquareAPIKey", "FoursquareAPISecret"]
+        let requiredKeys = ["GooglePlacesAPIKey"]
         
         for key in requiredKeys {
             guard let value = getStringValue(for: key),

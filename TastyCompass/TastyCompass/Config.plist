@@ -2,17 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>FoursquareAPIKey</key>
-	<string>LK4ZF0HNNHVMMWM33NKB4WQVSUCYWNXBBR1DNOFXX43XXUJD</string>
-	<key>FoursquareAPISecret</key>
-	<string>TWFSXGIHCP2GQH0EWPEAM3X5PCELUK1PZLLT5KVLACDYIOUD</string>
-	<key>FoursquareBaseURL</key>
-	<string>https://api.foursquare.com/v3</string>
-	<key>FoursquareSearchEndpoint</key>
-	<string>/places/search</string>
-	<key>FoursquarePlaceEndpoint</key>
-	<string>/places</string>
-	<key>FoursquarePhotoEndpoint</key>
-	<string>/places</string>
+	<key>GooglePlacesAPIKey</key>
+	<string>AIzaSyAJJumzxFPszrRUnQ7XyZa_yyFpaoqv7OU</string>
+	<key>GooglePlacesBaseURL</key>
+	<string>https://maps.googleapis.com/maps/api/place</string>
+	<key>GooglePlacesSearchEndpoint</key>
+	<string>/nearbysearch/json</string>
+	<key>GooglePlacesDetailsEndpoint</key>
+	<string>/details/json</string>
+	<key>GooglePlacesPhotoEndpoint</key>
+	<string>/photo</string>
 </dict>
 </plist>
+
+
+
+

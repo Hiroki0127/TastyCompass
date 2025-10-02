@@ -1,14 +1,14 @@
 import Foundation
 
-// MARK: - Foursquare API Response Models
+// MARK: - API Response Models
 
-/// Main response structure for Foursquare Places API
-struct FoursquareResponse: Codable {
+/// Main response structure for Places API
+struct PlacesResponse: Codable {
     let results: [Place]
     let context: Context?
 }
 
-/// Individual place/restaurant from Foursquare
+/// Individual place/restaurant
 struct Place: Codable, Identifiable, Hashable {
     let fsqId: String
     let name: String
@@ -287,6 +287,28 @@ enum PriceRange: String, CaseIterable {
         case .two: return "Moderate"
         case .three: return "Upscale"
         case .four: return "Fine dining"
+        }
+    }
+    
+    /// Minimum price level for Google Places API (1-4)
+    var min: Int? {
+        switch self {
+        case .all: return nil
+        case .one: return 1
+        case .two: return 2
+        case .three: return 3
+        case .four: return 4
+        }
+    }
+    
+    /// Maximum price level for Google Places API (1-4)
+    var max: Int? {
+        switch self {
+        case .all: return nil
+        case .one: return 1
+        case .two: return 2
+        case .three: return 3
+        case .four: return 4
         }
     }
 }

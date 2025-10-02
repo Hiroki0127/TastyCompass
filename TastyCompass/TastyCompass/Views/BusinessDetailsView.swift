@@ -1,16 +1,12 @@
 import SwiftUI
 import MapKit
-import Combine
 import UIKit
 
 /// Detailed view for displaying restaurant information
 struct BusinessDetailsView: View {
     let place: Place
     @StateObject private var favoritesManager = FavoritesManager.shared
-    @StateObject private var apiService = FoursquareAPIService.shared
     
-    @State private var photos: [PlacePhoto] = []
-    @State private var isLoadingPhotos = false
     @State private var showingShareSheet = false
     @State private var showingMap = false
     @State private var region: MKCoordinateRegion
@@ -85,9 +81,6 @@ struct BusinessDetailsView: View {
         }
         .sheet(isPresented: $showingMap) {
             MapView(region: $region, place: place)
-        }
-        .onAppear {
-            loadPhotos()
         }
     }
     
@@ -294,14 +287,7 @@ struct BusinessDetailsView: View {
                 .font(.headline)
                 .fontWeight(.semibold)
             
-            if isLoadingPhotos {
-                ProgressView("Loading photos...")
-                    .frame(maxWidth: .infinity)
-            } else if photos.isEmpty {
-                Text("No photos available")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            } else {
+            if let photos = place.photos, !photos.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(photos, id: \.id) { photo in
@@ -325,6 +311,10 @@ struct BusinessDetailsView: View {
                     }
                     .padding(.horizontal)
                 }
+            } else {
+                Text("No photos available")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
         }
     }
@@ -378,22 +368,6 @@ struct BusinessDetailsView: View {
     
     // MARK: - Private Methods
     
-    private func loadPhotos() {
-        isLoadingPhotos = true
-        apiService.getPlacePhotos(placeId: place.fsqId)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { _ in
-                    isLoadingPhotos = false
-                },
-                receiveValue: { loadedPhotos in
-                    photos = loadedPhotos
-                    isLoadingPhotos = false
-                }
-            )
-            .store(in: &cancellables)
-    }
-    
     private func dayName(for day: Int) -> String {
         let days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
         return days[day]
@@ -407,8 +381,6 @@ struct BusinessDetailsView: View {
         text += "\n\(place.location.displayAddress)"
         return text
     }
-    
-    @State private var cancellables = Set<AnyCancellable>()
 }
 
 // MARK: - Contact Row
