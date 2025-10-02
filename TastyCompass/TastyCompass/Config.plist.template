@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>GooglePlacesAPIKey</key>
-	<string>AIzaSyAJJumzxFPszrRUnQ7XyZa_yyFpaoqv7OU</string>
+	<string>YOUR_GOOGLE_PLACES_API_KEY_HERE</string>
 	<key>GooglePlacesBaseURL</key>
 	<string>https://maps.googleapis.com/maps/api/place</string>
 	<key>GooglePlacesSearchEndpoint</key>
@@ -14,7 +14,4 @@
 	<string>/photo</string>
 </dict>
 </plist>
-
-
-
 
