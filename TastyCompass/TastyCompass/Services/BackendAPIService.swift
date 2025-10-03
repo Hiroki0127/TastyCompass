@@ -29,17 +29,24 @@ class BackendAPIService: ObservableObject {
             "lastName": "Name"
         ]
         
-        print("🌐 Signing in user: \(email)")
+        print("🌐 Signing up user: \(email)")
         
         return makeRequest(url: url, method: "POST", body: requestBody)
+            .handleEvents(
+                receiveOutput: { data in
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("🔍 Raw signup response: \(jsonString)")
+                    }
+                }
+            )
             .decode(type: AuthResponse.self, decoder: JSONDecoder())
             .handleEvents(
                 receiveOutput: { response in
-                    print("✅ Sign in successful: \(response.user.email)")
+                    print("✅ Sign up successful: \(response.user.email)")
                 },
                 receiveCompletion: { completion in
                     if case .failure(let error) = completion {
-                        print("❌ Sign in failed: \(error)")
+                        print("❌ Sign up failed: \(error)")
                     }
                 }
             )
@@ -60,6 +67,13 @@ class BackendAPIService: ObservableObject {
         print("🌐 Signing in user: \(email)")
         
         return makeRequest(url: url, method: "POST", body: requestBody)
+            .handleEvents(
+                receiveOutput: { data in
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("🔍 Raw response: \(jsonString)")
+                    }
+                }
+            )
             .decode(type: AuthResponse.self, decoder: JSONDecoder())
             .handleEvents(
                 receiveOutput: { [weak self] response in
@@ -134,6 +148,14 @@ class BackendAPIService: ObservableObject {
         
         if filter.minRating > 0 {
             urlComponents.queryItems?.append(URLQueryItem(name: "minRating", value: "\(filter.minRating)"))
+        }
+        
+        // Add price range filter
+        if filter.priceRange != .all {
+            // For single price level selection, use the min value
+            if let priceLevel = filter.priceRange.min {
+                urlComponents.queryItems?.append(URLQueryItem(name: "priceLevel", value: "\(priceLevel)"))
+            }
         }
         
         guard let url = urlComponents.url else {
@@ -360,10 +382,13 @@ class BackendAPIService: ObservableObject {
                 }
                 
                 do {
-                    let response = try JSONDecoder().decode([String: Bool].self, from: data)
-                    let isFavorited = response["isFavorited"] ?? false
-                    print("✅ Toggle favorite result: \(isFavorited)")
-                    return isFavorited
+                    let response = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+                    if let isFavorited = response["isFavorited"] as? Bool {
+                        print("✅ Toggle favorite result: \(isFavorited)")
+                        return isFavorited
+                    } else {
+                        throw BackendAPIError.decodingError
+                    }
                 } catch {
                     print("❌ Failed to decode toggle favorite response: \(error)")
                     return false
@@ -511,7 +536,7 @@ class BackendAPIService: ObservableObject {
             price: backendRestaurant.priceLevel,
             rating: backendRestaurant.rating,
             stats: PlaceStats(
-                totalRatings: backendRestaurant.reviews?.count ?? 0,
+                totalRatings: backendRestaurant.totalRatings ?? 0,
                 totalTips: 0
             ),
             verified: false,
@@ -599,6 +624,7 @@ struct BackendRestaurant: Codable {
     let categories: [String]
     let location: BackendLocation
     let reviews: [BackendReview]?
+    let totalRatings: Int?
 }
 
 struct BackendPhoto: Codable {

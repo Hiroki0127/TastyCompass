@@ -64,6 +64,7 @@ class GooglePlacesService {
                 latitude: place.geometry.location.lat,
                 longitude: place.geometry.location.lng,
             },
+            totalRatings: place.user_ratings_total || 0,
         };
     }
     // Map Google Places Details API response to our Restaurant type

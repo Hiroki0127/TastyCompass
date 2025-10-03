@@ -17,6 +17,8 @@ router.get('/search', async (req, res) => {
       openNow,
       minRating,
       priceLevel,
+      minPrice,
+      maxPrice,
     } = req.query;
 
     // Validate required parameters
@@ -43,9 +45,17 @@ router.get('/search', async (req, res) => {
       filteredRestaurants = filteredRestaurants.filter(r => r.rating && r.rating >= minRatingNum);
     }
 
+    // Handle price filtering - support both single price level and range
     if (priceLevel) {
       const priceLevelNum = parseInt(priceLevel as string);
       filteredRestaurants = filteredRestaurants.filter(r => r.priceLevel === priceLevelNum);
+    } else if (minPrice || maxPrice) {
+      const minPriceNum = minPrice ? parseInt(minPrice as string) : 1;
+      const maxPriceNum = maxPrice ? parseInt(maxPrice as string) : 4;
+      filteredRestaurants = filteredRestaurants.filter(r => {
+        if (!r.priceLevel) return false;
+        return r.priceLevel >= minPriceNum && r.priceLevel <= maxPriceNum;
+      });
     }
 
     res.json({

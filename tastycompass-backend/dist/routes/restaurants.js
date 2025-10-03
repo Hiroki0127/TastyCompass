@@ -11,7 +11,7 @@ const googlePlacesService = new googlePlacesService_1.GooglePlacesService(proces
 // GET /api/restaurants/search
 router.get('/search', async (req, res) => {
     try {
-        const { query, location, radius, openNow, minRating, priceLevel, } = req.query;
+        const { query, location, radius, openNow, minRating, priceLevel, minPrice, maxPrice, } = req.query;
         // Validate required parameters
         if (!location) {
             return res.status(400).json({
@@ -32,9 +32,19 @@ router.get('/search', async (req, res) => {
             const minRatingNum = parseFloat(minRating);
             filteredRestaurants = filteredRestaurants.filter(r => r.rating && r.rating >= minRatingNum);
         }
+        // Handle price filtering - support both single price level and range
         if (priceLevel) {
             const priceLevelNum = parseInt(priceLevel);
             filteredRestaurants = filteredRestaurants.filter(r => r.priceLevel === priceLevelNum);
+        }
+        else if (minPrice || maxPrice) {
+            const minPriceNum = minPrice ? parseInt(minPrice) : 1;
+            const maxPriceNum = maxPrice ? parseInt(maxPrice) : 4;
+            filteredRestaurants = filteredRestaurants.filter(r => {
+                if (!r.priceLevel)
+                    return false;
+                return r.priceLevel >= minPriceNum && r.priceLevel <= maxPriceNum;
+            });
         }
         res.json({
             restaurants: filteredRestaurants,

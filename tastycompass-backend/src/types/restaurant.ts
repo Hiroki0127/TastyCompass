@@ -16,6 +16,7 @@ export interface Restaurant {
   };
   distance?: number; // in meters
   reviews?: RestaurantReview[];
+  totalRatings?: number;
 }
 
 export interface RestaurantPhoto {

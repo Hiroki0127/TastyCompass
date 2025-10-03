@@ -151,34 +151,38 @@ struct CompactRatingView: View {
     }
     
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             // Rating
             if let rating = rating {
-                StarRatingView(
-                    rating: rating,
-                    starSize: 12,
-                    showRating: false
-                )
-                
-                Text(String(format: "%.1f", rating))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                HStack(spacing: 2) {
+                    StarRatingView(
+                        rating: rating,
+                        starSize: 10,
+                        showRating: false
+                    )
+                    
+                    Text(String(format: "%.1f", rating))
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                }
             } else {
                 Text("No Rating")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
             
-            // Review count
-            if let reviewCount = reviewCount {
+            // Review count - only show if there are actual reviews
+            if let reviewCount = reviewCount, reviewCount > 0 {
                 Text("(\(reviewCount))")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
             }
             
             // Status indicator
             Circle()
-                        .fill(isOpen ? Color.green : Color.red)
+                .fill(isOpen ? Color.green : Color.red)
                 .frame(width: 4, height: 4)
         }
     }

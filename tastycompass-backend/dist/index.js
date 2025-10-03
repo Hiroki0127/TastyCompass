@@ -50,5 +50,6 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📱 API available at: http://localhost:${PORT}`);
     console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`💾 Storage: In-memory (data will reset on restart)`);
 });
 exports.default = app;

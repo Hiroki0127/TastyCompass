@@ -79,6 +79,7 @@ export class GooglePlacesService {
         latitude: place.geometry.location.lat,
         longitude: place.geometry.location.lng,
       },
+      totalRatings: place.user_ratings_total || 0,
     };
   }
 
