@@ -30,6 +30,7 @@ app.get('/', (req, res) => {
 // Import routes
 import restaurantRoutes from './routes/restaurants';
 import authRoutes from './routes/auth';
+import favoriteRoutes from './routes/favorites';
 
 // API routes
 app.get('/api/health', (req, res) => {
@@ -45,6 +46,9 @@ app.use('/api/auth', authRoutes);
 
 // Restaurant routes
 app.use('/api/restaurants', restaurantRoutes);
+
+// Favorite routes
+app.use('/api/favorites', favoriteRoutes);
 
 // Start server
 app.listen(PORT, () => {

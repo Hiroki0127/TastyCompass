@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import Combine
 
 /// A SwiftUI view that displays a restaurant in a list row
 struct BusinessRowView: View {
@@ -7,14 +8,23 @@ struct BusinessRowView: View {
     let onTap: (() -> Void)?
     let onFavoriteTap: (() -> Void)?
     
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    @StateObject private var apiService = BackendAPIService.shared
+    @EnvironmentObject private var toastManager: ToastManager
+    @State private var isFavorited = false
+    @State private var isTogglingFavorite = false
+    @State private var cancellables = Set<AnyCancellable>()
+    
+    // Optional binding to sync with parent view's favorite state
+    @Binding var parentFavoriteState: Bool?
     
     init(
         place: Place,
+        parentFavoriteState: Binding<Bool?> = .constant(nil),
         onTap: (() -> Void)? = nil,
         onFavoriteTap: (() -> Void)? = nil
     ) {
         self.place = place
+        self._parentFavoriteState = parentFavoriteState
         self.onTap = onTap
         self.onFavoriteTap = onFavoriteTap
     }
@@ -93,15 +103,24 @@ struct BusinessRowView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 
                 // Favorite button
-                Button(action: {
-                    favoritesManager.toggleFavorite(place)
+                Button {
+                    toggleFavorite()
                     onFavoriteTap?()
-                }) {
-                    Image(systemName: favoritesManager.isFavorite(place) ? "heart.fill" : "heart")
+                } label: {
+                    Image(systemName: isFavorited ? "heart.fill" : "heart")
                         .font(.title3)
-                        .foregroundColor(favoritesManager.isFavorite(place) ? .red : .gray)
+                        .foregroundColor(isFavorited ? .red : .gray)
+                        .scaleEffect(isFavorited ? 1.1 : 1.0)
+                        .animation(.easeInOut(duration: 0.2), value: isFavorited)
                 }
+                .disabled(isTogglingFavorite)
                 .buttonStyle(PlainButtonStyle())
+                .overlay {
+                    if isTogglingFavorite {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                    }
+                }
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 16)
@@ -110,6 +129,87 @@ struct BusinessRowView: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .onAppear {
+            checkFavoriteStatus()
+        }
+    }
+    
+    private func checkFavoriteStatus() {
+        // If parent has favorite state, use it first (optimistic)
+        if let parentState = parentFavoriteState {
+            self.isFavorited = parentState
+        }
+        
+        apiService.checkFavoriteStatus(restaurantId: place.fsqId)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to check favorite status: \(error)")
+                        // Default to false if check fails
+                        self.isFavorited = false
+                    }
+                },
+                receiveValue: { isFavorited in
+                    self.isFavorited = isFavorited
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func toggleFavorite() {
+        guard !isTogglingFavorite else { return }
+        
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Optimistic UI update - immediately toggle the heart
+        let previousState = isFavorited
+        isFavorited.toggle()
+        isTogglingFavorite = true
+        
+        // Also update parent state if available
+        if parentFavoriteState != nil {
+            parentFavoriteState = isFavorited
+        }
+        
+        apiService.toggleFavorite(for: place)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isTogglingFavorite = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to toggle favorite: \(error)")
+                        // Add error haptic feedback
+                        let notificationFeedback = UINotificationFeedbackGenerator()
+                        notificationFeedback.notificationOccurred(.error)
+                        // Show error toast
+                        toastManager.show(Toast(message: "Failed to update favorites", type: .error, duration: 3.0))
+                        // Revert optimistic update on failure
+                        self.isFavorited = previousState
+                        if parentFavoriteState != nil {
+                            parentFavoriteState = previousState
+                        }
+                    }
+                },
+                receiveValue: { isFavorited in
+                    // Add success haptic feedback
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                    
+                    // Show success toast
+                    let message = isFavorited ? "Added to favorites" : "Removed from favorites"
+                    toastManager.show(Toast(message: message, type: .success, duration: 2.0))
+                    
+                    // Update with actual server response
+                    self.isFavorited = isFavorited
+                    if parentFavoriteState != nil {
+                        parentFavoriteState = isFavorited
+                    }
+                }
+            )
+            .store(in: &cancellables)
     }
 }
 
@@ -121,14 +221,22 @@ struct CompactBusinessRowView: View {
     let onTap: (() -> Void)?
     let onFavoriteTap: (() -> Void)?
     
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    @StateObject private var apiService = BackendAPIService.shared
+    @State private var isFavorited = false
+    @State private var isTogglingFavorite = false
+    @State private var cancellables = Set<AnyCancellable>()
+    
+    // Optional binding to sync with parent view's favorite state
+    @Binding var parentFavoriteState: Bool?
     
     init(
         place: Place,
+        parentFavoriteState: Binding<Bool?> = .constant(nil),
         onTap: (() -> Void)? = nil,
         onFavoriteTap: (() -> Void)? = nil
     ) {
         self.place = place
+        self._parentFavoriteState = parentFavoriteState
         self.onTap = onTap
         self.onFavoriteTap = onFavoriteTap
     }
@@ -186,12 +294,12 @@ struct CompactBusinessRowView: View {
                 
                 // Favorite button
                 Button(action: {
-                    favoritesManager.toggleFavorite(place)
+                    toggleFavorite()
                     onFavoriteTap?()
                 }) {
-                    Image(systemName: favoritesManager.isFavorite(place) ? "heart.fill" : "heart")
+                    Image(systemName: isFavorited ? "heart.fill" : "heart")
                         .font(.title3)
-                        .foregroundColor(favoritesManager.isFavorite(place) ? .red : .gray)
+                        .foregroundColor(isFavorited ? .red : .gray)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -199,6 +307,86 @@ struct CompactBusinessRowView: View {
             .padding(.horizontal, 12)
         }
         .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            checkFavoriteStatus()
+        }
+    }
+    
+    private func checkFavoriteStatus() {
+        // If parent has favorite state, use it first (optimistic)
+        if let parentState = parentFavoriteState {
+            self.isFavorited = parentState
+        }
+        
+        apiService.checkFavoriteStatus(restaurantId: place.fsqId)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to check favorite status: \(error)")
+                        self.isFavorited = false
+                    }
+                },
+                receiveValue: { isFavorited in
+                    self.isFavorited = isFavorited
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func toggleFavorite() {
+        guard !isTogglingFavorite else { return }
+        
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Optimistic UI update - immediately toggle the heart
+        let previousState = isFavorited
+        isFavorited.toggle()
+        isTogglingFavorite = true
+        
+        // Also update parent state if available
+        if parentFavoriteState != nil {
+            parentFavoriteState = isFavorited
+        }
+        
+        apiService.toggleFavorite(for: place)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isTogglingFavorite = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to toggle favorite: \(error)")
+                        // Add error haptic feedback
+                        let notificationFeedback = UINotificationFeedbackGenerator()
+                        notificationFeedback.notificationOccurred(.error)
+                        // Show error toast
+                        toastManager.show(Toast(message: "Failed to update favorites", type: .error, duration: 3.0))
+                        // Revert optimistic update on failure
+                        self.isFavorited = previousState
+                        if parentFavoriteState != nil {
+                            parentFavoriteState = previousState
+                        }
+                    }
+                },
+                receiveValue: { isFavorited in
+                    // Add success haptic feedback
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                    
+                    // Show success toast
+                    let message = isFavorited ? "Added to favorites" : "Removed from favorites"
+                    toastManager.show(Toast(message: message, type: .success, duration: 2.0))
+                    
+                    // Update with actual server response
+                    self.isFavorited = isFavorited
+                    if parentFavoriteState != nil {
+                        parentFavoriteState = isFavorited
+                    }
+                }
+            )
+            .store(in: &cancellables)
     }
 }
 
@@ -210,14 +398,22 @@ struct BusinessCardView: View {
     let onTap: (() -> Void)?
     let onFavoriteTap: (() -> Void)?
     
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    @StateObject private var apiService = BackendAPIService.shared
+    @State private var isFavorited = false
+    @State private var isTogglingFavorite = false
+    @State private var cancellables = Set<AnyCancellable>()
+    
+    // Optional binding to sync with parent view's favorite state
+    @Binding var parentFavoriteState: Bool?
     
     init(
         place: Place,
+        parentFavoriteState: Binding<Bool?> = .constant(nil),
         onTap: (() -> Void)? = nil,
         onFavoriteTap: (() -> Void)? = nil
     ) {
         self.place = place
+        self._parentFavoriteState = parentFavoriteState
         self.onTap = onTap
         self.onFavoriteTap = onFavoriteTap
     }
@@ -239,12 +435,12 @@ struct BusinessCardView: View {
                     
                     // Favorite button
                     Button(action: {
-                        favoritesManager.toggleFavorite(place)
+                        toggleFavorite()
                         onFavoriteTap?()
                     }) {
-                        Image(systemName: favoritesManager.isFavorite(place) ? "heart.fill" : "heart")
+                        Image(systemName: isFavorited ? "heart.fill" : "heart")
                             .font(.title3)
-                            .foregroundColor(favoritesManager.isFavorite(place) ? .red : .white)
+                            .foregroundColor(isFavorited ? .red : .white)
                             .padding(8)
                             .background(Color.black.opacity(0.3))
                             .clipShape(Circle())
@@ -319,6 +515,86 @@ struct BusinessCardView: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .onAppear {
+            checkFavoriteStatus()
+        }
+    }
+    
+    private func checkFavoriteStatus() {
+        // If parent has favorite state, use it first (optimistic)
+        if let parentState = parentFavoriteState {
+            self.isFavorited = parentState
+        }
+        
+        apiService.checkFavoriteStatus(restaurantId: place.fsqId)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to check favorite status: \(error)")
+                        self.isFavorited = false
+                    }
+                },
+                receiveValue: { isFavorited in
+                    self.isFavorited = isFavorited
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func toggleFavorite() {
+        guard !isTogglingFavorite else { return }
+        
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Optimistic UI update - immediately toggle the heart
+        let previousState = isFavorited
+        isFavorited.toggle()
+        isTogglingFavorite = true
+        
+        // Also update parent state if available
+        if parentFavoriteState != nil {
+            parentFavoriteState = isFavorited
+        }
+        
+        apiService.toggleFavorite(for: place)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isTogglingFavorite = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to toggle favorite: \(error)")
+                        // Add error haptic feedback
+                        let notificationFeedback = UINotificationFeedbackGenerator()
+                        notificationFeedback.notificationOccurred(.error)
+                        // Show error toast
+                        toastManager.show(Toast(message: "Failed to update favorites", type: .error, duration: 3.0))
+                        // Revert optimistic update on failure
+                        self.isFavorited = previousState
+                        if parentFavoriteState != nil {
+                            parentFavoriteState = previousState
+                        }
+                    }
+                },
+                receiveValue: { isFavorited in
+                    // Add success haptic feedback
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                    
+                    // Show success toast
+                    let message = isFavorited ? "Added to favorites" : "Removed from favorites"
+                    toastManager.show(Toast(message: message, type: .success, duration: 2.0))
+                    
+                    // Update with actual server response
+                    self.isFavorited = isFavorited
+                    if parentFavoriteState != nil {
+                        parentFavoriteState = isFavorited
+                    }
+                }
+            )
+            .store(in: &cancellables)
     }
 }
 
@@ -330,14 +606,22 @@ struct ListBusinessRowView: View {
     let onTap: (() -> Void)?
     let onFavoriteTap: (() -> Void)?
     
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    @StateObject private var apiService = BackendAPIService.shared
+    @State private var isFavorited = false
+    @State private var isTogglingFavorite = false
+    @State private var cancellables = Set<AnyCancellable>()
+    
+    // Optional binding to sync with parent view's favorite state
+    @Binding var parentFavoriteState: Bool?
     
     init(
         place: Place,
+        parentFavoriteState: Binding<Bool?> = .constant(nil),
         onTap: (() -> Void)? = nil,
         onFavoriteTap: (() -> Void)? = nil
     ) {
         self.place = place
+        self._parentFavoriteState = parentFavoriteState
         self.onTap = onTap
         self.onFavoriteTap = onFavoriteTap
     }
@@ -387,18 +671,98 @@ struct ListBusinessRowView: View {
                 
                 // Favorite button
                 Button(action: {
-                    favoritesManager.toggleFavorite(place)
+                    toggleFavorite()
                     onFavoriteTap?()
                 }) {
-                    Image(systemName: favoritesManager.isFavorite(place) ? "heart.fill" : "heart")
+                    Image(systemName: isFavorited ? "heart.fill" : "heart")
                         .font(.title3)
-                        .foregroundColor(favoritesManager.isFavorite(place) ? .red : .gray)
+                        .foregroundColor(isFavorited ? .red : .gray)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
             .padding(.vertical, 4)
         }
         .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            checkFavoriteStatus()
+        }
+    }
+    
+    private func checkFavoriteStatus() {
+        // If parent has favorite state, use it first (optimistic)
+        if let parentState = parentFavoriteState {
+            self.isFavorited = parentState
+        }
+        
+        apiService.checkFavoriteStatus(restaurantId: place.fsqId)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to check favorite status: \(error)")
+                        self.isFavorited = false
+                    }
+                },
+                receiveValue: { isFavorited in
+                    self.isFavorited = isFavorited
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func toggleFavorite() {
+        guard !isTogglingFavorite else { return }
+        
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Optimistic UI update - immediately toggle the heart
+        let previousState = isFavorited
+        isFavorited.toggle()
+        isTogglingFavorite = true
+        
+        // Also update parent state if available
+        if parentFavoriteState != nil {
+            parentFavoriteState = isFavorited
+        }
+        
+        apiService.toggleFavorite(for: place)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isTogglingFavorite = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to toggle favorite: \(error)")
+                        // Add error haptic feedback
+                        let notificationFeedback = UINotificationFeedbackGenerator()
+                        notificationFeedback.notificationOccurred(.error)
+                        // Show error toast
+                        toastManager.show(Toast(message: "Failed to update favorites", type: .error, duration: 3.0))
+                        // Revert optimistic update on failure
+                        self.isFavorited = previousState
+                        if parentFavoriteState != nil {
+                            parentFavoriteState = previousState
+                        }
+                    }
+                },
+                receiveValue: { isFavorited in
+                    // Add success haptic feedback
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                    
+                    // Show success toast
+                    let message = isFavorited ? "Added to favorites" : "Removed from favorites"
+                    toastManager.show(Toast(message: message, type: .success, duration: 2.0))
+                    
+                    // Update with actual server response
+                    self.isFavorited = isFavorited
+                    if parentFavoriteState != nil {
+                        parentFavoriteState = isFavorited
+                    }
+                }
+            )
+            .store(in: &cancellables)
     }
 }
 

@@ -100,6 +100,267 @@ class BackendAPIService: ObservableObject {
             .eraseToAnyPublisher()
     }
     
+    // MARK: - Authentication
+    
+    func login(email: String, password: String) -> AnyPublisher<(User, String), Error> {
+        let urlString = "\(baseURL)/auth/login"
+        guard let url = URL(string: urlString) else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let requestBody: [String: String] = [
+            "email": email,
+            "password": password
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            return Fail(error: error).eraseToAnyPublisher()
+        }
+        
+        print("🌐 Logging in: \(email)")
+        
+        return session.dataTaskPublisher(for: request)
+            .tryMap { data, response in
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+                    let responseBody = String(data: data, encoding: .utf8) ?? "N/A"
+                    print("❌ Login HTTP Error: \(statusCode), Body: \(responseBody)")
+                    throw BackendAPIError.networkError(NSError(domain: "HTTPError", code: statusCode, userInfo: [NSLocalizedDescriptionKey: responseBody]))
+                }
+                
+                do {
+                    let response = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+                    
+                    guard let userDict = response["user"] as? [String: Any],
+                          let token = response["token"] as? String else {
+                        throw BackendAPIError.decodingError
+                    }
+                    
+                    let user = User(
+                        id: userDict["id"] as? String ?? "",
+                        email: userDict["email"] as? String ?? "",
+                        firstName: userDict["firstName"] as? String ?? "",
+                        lastName: userDict["lastName"] as? String ?? "",
+                        createdAt: userDict["createdAt"] as? String ?? "",
+                        updatedAt: userDict["updatedAt"] as? String ?? ""
+                    )
+                    
+                    print("✅ Login successful: \(user.email)")
+                    return (user, token)
+                } catch {
+                    print("❌ Failed to decode login response: \(error)")
+                    throw BackendAPIError.decodingError
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func register(email: String, password: String, firstName: String, lastName: String) -> AnyPublisher<(User, String), Error> {
+        let urlString = "\(baseURL)/auth/register"
+        guard let url = URL(string: urlString) else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let requestBody: [String: String] = [
+            "email": email,
+            "password": password,
+            "firstName": firstName,
+            "lastName": lastName
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            return Fail(error: error).eraseToAnyPublisher()
+        }
+        
+        print("🌐 Registering: \(email)")
+        
+        return session.dataTaskPublisher(for: request)
+            .tryMap { data, response in
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 201 else {
+                    let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+                    let responseBody = String(data: data, encoding: .utf8) ?? "N/A"
+                    print("❌ Register HTTP Error: \(statusCode), Body: \(responseBody)")
+                    throw BackendAPIError.networkError(NSError(domain: "HTTPError", code: statusCode, userInfo: [NSLocalizedDescriptionKey: responseBody]))
+                }
+                
+                do {
+                    let response = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+                    
+                    guard let userDict = response["user"] as? [String: Any],
+                          let token = response["token"] as? String else {
+                        throw BackendAPIError.decodingError
+                    }
+                    
+                    let user = User(
+                        id: userDict["id"] as? String ?? "",
+                        email: userDict["email"] as? String ?? "",
+                        firstName: userDict["firstName"] as? String ?? "",
+                        lastName: userDict["lastName"] as? String ?? "",
+                        createdAt: userDict["createdAt"] as? String ?? "",
+                        updatedAt: userDict["updatedAt"] as? String ?? ""
+                    )
+                    
+                    print("✅ Registration successful: \(user.email)")
+                    return (user, token)
+                } catch {
+                    print("❌ Failed to decode register response: \(error)")
+                    throw BackendAPIError.decodingError
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Favorites
+    
+    func toggleFavorite(for place: Place) -> AnyPublisher<Bool, Error> {
+        let urlString = "\(baseURL)/favorites/toggle"
+        guard let url = URL(string: urlString) else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add authentication token if available
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let requestBody: [String: Any] = [
+            "restaurantId": place.fsqId,
+            "restaurantName": place.name,
+            "restaurantAddress": place.location.displayAddress,
+            "restaurantRating": place.rating as Any,
+            "restaurantPriceLevel": place.price as Any,
+            "restaurantPhotoUrl": place.photos?.first?.photoURL as Any
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            return Fail(error: error).eraseToAnyPublisher()
+        }
+        
+        print("🌐 Toggling favorite: \(place.name)")
+        
+        return session.dataTaskPublisher(for: request)
+            .tryMap { data, response in
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 || httpResponse.statusCode == 201 else {
+                    let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+                    let responseBody = String(data: data, encoding: .utf8) ?? "N/A"
+                    print("❌ Toggle favorite HTTP Error: \(statusCode), Body: \(responseBody)")
+                    throw BackendAPIError.networkError(NSError(domain: "HTTPError", code: statusCode, userInfo: [NSLocalizedDescriptionKey: responseBody]))
+                }
+                
+                do {
+                    let response = try JSONDecoder().decode([String: Bool].self, from: data)
+                    let isFavorited = response["isFavorited"] ?? false
+                    print("✅ Toggle favorite result: \(isFavorited)")
+                    return isFavorited
+                } catch {
+                    print("❌ Failed to decode toggle favorite response: \(error)")
+                    return false
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func checkFavoriteStatus(restaurantId: String) -> AnyPublisher<Bool, Error> {
+        let urlString = "\(baseURL)/favorites/check/\(restaurantId)"
+        guard let url = URL(string: urlString) else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Checking favorite status: \(restaurantId)")
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        // Add authentication token if available
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        return session.dataTaskPublisher(for: request)
+            .tryMap { data, response in
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+                    let responseBody = String(data: data, encoding: .utf8) ?? "N/A"
+                    print("❌ Check favorite status HTTP Error: \(statusCode), Body: \(responseBody)")
+                    throw BackendAPIError.networkError(NSError(domain: "HTTPError", code: statusCode, userInfo: [NSLocalizedDescriptionKey: responseBody]))
+                }
+                
+                do {
+                    let response = try JSONDecoder().decode([String: Bool].self, from: data)
+                    let isFavorited = response["isFavorited"] ?? false
+                    print("✅ Favorite status: \(isFavorited)")
+                    return isFavorited
+                } catch {
+                    print("❌ Failed to decode favorite status response: \(error)")
+                    return false
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func getAllFavorites() -> AnyPublisher<[Place], Error> {
+        let urlString = "\(baseURL)/favorites"
+        guard let url = URL(string: urlString) else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Getting all favorites")
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        // Add authentication token if available
+        if let token = AuthManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        return session.dataTaskPublisher(for: request)
+            .tryMap { data, response in
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+                    let responseBody = String(data: data, encoding: .utf8) ?? "N/A"
+                    print("❌ Get favorites HTTP Error: \(statusCode), Body: \(responseBody)")
+                    throw BackendAPIError.networkError(NSError(domain: "HTTPError", code: statusCode, userInfo: [NSLocalizedDescriptionKey: responseBody]))
+                }
+                
+                do {
+                    let response = try JSONDecoder().decode(BackendFavoritesResponse.self, from: data)
+                    let places = response.favorites.map { favorite in
+                        self.convertBackendFavoriteToPlace(favorite)
+                    }
+                    print("✅ Loaded \(places.count) favorites")
+                    return places
+                } catch {
+                    print("❌ Failed to decode favorites response: \(error)")
+                    throw BackendAPIError.decodingError
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+    
     // MARK: - Helper Methods
     
     private func convertBackendRestaurantToPlace(_ backendRestaurant: BackendRestaurant, userLocation: CLLocation?) -> Place {
@@ -170,6 +431,57 @@ class BackendAPIService: ObservableObject {
             socialMedia: nil
         )
     }
+    
+    private func convertBackendFavoriteToPlace(_ backendFavorite: BackendFavorite) -> Place {
+        // Create a photo from the photo URL if available
+        let photos: [PlacePhoto]?
+        if let photoUrl = backendFavorite.restaurantPhotoUrl, !photoUrl.isEmpty {
+            photos = [PlacePhoto(
+                id: UUID().uuidString,
+                createdAt: "",
+                prefix: photoUrl,
+                suffix: "",
+                width: 400,
+                height: 400
+            )]
+        } else {
+            photos = nil
+        }
+        
+        return Place(
+            fsqId: backendFavorite.restaurantId,
+            name: backendFavorite.restaurantName,
+            categories: [Category(
+                id: Int.random(in: 1...1000),
+                name: "Restaurant",
+                icon: CategoryIcon(prefix: "", suffix: "")
+            )],
+            distance: nil,
+            geocodes: Geocodes(
+                main: Coordinate(latitude: 0, longitude: 0), // Will be updated when we have location data
+                roof: nil
+            ),
+            location: PlaceLocation(
+                address: backendFavorite.restaurantAddress,
+                crossStreet: "",
+                locality: "",
+                region: "",
+                postcode: "",
+                country: "",
+                formattedAddress: backendFavorite.restaurantAddress
+            ),
+            popularity: 0,
+            price: backendFavorite.restaurantPriceLevel,
+            rating: backendFavorite.restaurantRating,
+            stats: nil,
+            verified: nil,
+            hours: nil,
+            photos: photos,
+            tel: "",
+            website: "",
+            socialMedia: nil
+        )
+    }
 }
 
 // MARK: - Backend API Models
@@ -216,6 +528,22 @@ struct BackendReview: Codable {
     let rating: Int
     let text: String?
     let time: String
+}
+
+struct BackendFavoritesResponse: Codable {
+    let favorites: [BackendFavorite]
+    let count: Int
+}
+
+struct BackendFavorite: Codable {
+    let id: String
+    let restaurantId: String
+    let restaurantName: String
+    let restaurantAddress: String
+    let restaurantRating: Double?
+    let restaurantPriceLevel: Int?
+    let restaurantPhotoUrl: String?
+    let createdAt: String
 }
 
 // MARK: - Backend API Error

@@ -6,8 +6,8 @@ import Combine
 /// Detailed view for displaying restaurant information
 struct BusinessDetailsView: View {
     let place: Place
-    @StateObject private var favoritesManager = FavoritesManager.shared
-    @StateObject private var apiService = BackendAPIService()
+    @StateObject private var apiService = BackendAPIService.shared
+    @EnvironmentObject private var toastManager: ToastManager
     
     @State private var showingShareSheet = false
     @State private var showingMap = false
@@ -16,9 +16,21 @@ struct BusinessDetailsView: View {
     @State private var region: MKCoordinateRegion
     @State private var detailedPlace: Place?
     @State private var isLoadingDetails = false
+    @State private var isFavorited = false
+    @State private var isTogglingFavorite = false
+    @State private var refreshID = UUID() // Force view refresh
     
-    init(place: Place) {
+    // Optional binding to sync with parent view's favorite state
+    @Binding var parentFavoriteState: Bool?
+    
+    // Computed property for the effective favorite state
+    private var effectiveFavoriteState: Bool {
+        return parentFavoriteState ?? isFavorited
+    }
+    
+    init(place: Place, parentFavoriteState: Binding<Bool?>? = nil) {
         self.place = place
+        self._parentFavoriteState = parentFavoriteState ?? .constant(nil)
         self._region = State(initialValue: MKCoordinateRegion(
             center: CLLocationCoordinate2D(
                 latitude: place.geocodes.main.latitude,
@@ -54,6 +66,9 @@ struct BusinessDetailsView: View {
                     // Map section
                     mapView
                     
+                    // Reviews section
+                    reviewsView
+                    
                     // Categories
                     categoriesView
                 }
@@ -72,13 +87,6 @@ struct BusinessDetailsView: View {
                         Image(systemName: "square.and.arrow.up")
                     }
                     
-                    // Favorite button
-                    Button(action: {
-                        favoritesManager.toggleFavorite(place)
-                    }) {
-                        Image(systemName: favoritesManager.isFavorite(place) ? "heart.fill" : "heart")
-                            .foregroundColor(favoritesManager.isFavorite(place) ? .red : .primary)
-                    }
                 }
             }
         }
@@ -94,9 +102,10 @@ struct BusinessDetailsView: View {
                 selectedIndex: $selectedPhotoIndex
             )
         }
-        .onAppear {
-            loadPlaceDetails()
-        }
+       .onAppear {
+           loadPlaceDetails()
+           checkFavoriteStatus()
+       }
     }
     
     // MARK: - Hero Image View
@@ -162,22 +171,53 @@ struct BusinessDetailsView: View {
     
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(place.name)
-                .font(.title)
-                .fontWeight(.bold)
-            
-            if let category = place.primaryCategory {
-                HStack {
-                    CategoryIconView(category: category, size: 20)
-                    Text(category.name)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(place.name)
+                        .font(.title)
+                        .fontWeight(.bold)
+                    
+                    if let category = place.primaryCategory {
+                        HStack {
+                            CategoryIconView(category: category, size: 20)
+                            Text(category.name)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Text(place.location.displayAddress)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
+                
+                Spacer()
+                
+                // Favorite button
+                Button {
+                    toggleFavorite()
+                } label: {
+                    ZStack {
+                        Image(systemName: effectiveFavoriteState ? "heart.fill" : "heart")
+                            .font(.title2)
+                            .foregroundColor(effectiveFavoriteState ? .red : .gray)
+                            .scaleEffect(effectiveFavoriteState ? 1.1 : 1.0)
+                            .animation(.easeInOut(duration: 0.2), value: effectiveFavoriteState)
+                            .onAppear {
+                                print("❤️ Heart icon appeared - effectiveFavoriteState: \(effectiveFavoriteState)")
+                                print("❤️ Heart icon color: \(effectiveFavoriteState ? "RED" : "GRAY")")
+                            }
+                        
+                        if isTogglingFavorite {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .tint(.white)
+                        }
+                    }
+                }
+                .id(refreshID) // Force view refresh when refreshID changes
+                .disabled(isTogglingFavorite)
             }
-            
-            Text(place.location.displayAddress)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
         }
     }
     
@@ -272,6 +312,16 @@ struct BusinessDetailsView: View {
                     value: place.location.displayAddress,
                     action: {
                         showingMap = true
+                    }
+                )
+                
+                // Directions button
+                ContactRow(
+                    icon: "map.fill",
+                    title: "Directions",
+                    value: "Get directions in Maps",
+                    action: {
+                        openDirections()
                     }
                 )
             }
@@ -412,6 +462,100 @@ struct BusinessDetailsView: View {
         }
     }
     
+    // MARK: - Reviews View
+    
+    private var reviewsView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Reviews")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                if let stats = place.stats, let totalRatings = stats.totalRatings {
+                    Text("(\(totalRatings))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+            }
+            
+            if let rating = place.rating {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Rating overview
+                    HStack {
+                        StarRatingView(
+                            rating: rating,
+                            starSize: 24,
+                            showRating: true
+                        )
+                        
+                        Spacer()
+                        
+                        if let stats = place.stats, let totalRatings = stats.totalRatings {
+                            VStack(alignment: .trailing) {
+                                Text("\(totalRatings) reviews")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                Text("Based on user reviews")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    
+                    // Sample review (placeholder)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Sample Review")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            Spacer()
+                            
+                            StarRatingView(
+                                rating: 5.0,
+                                starSize: 12,
+                                showRating: false
+                            )
+                        }
+                        
+                        Text("This is a placeholder review. In a real implementation, you would fetch actual reviews from your backend or a reviews API like Google Places API.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(3)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                    
+                    // View all reviews button
+                    Button(action: {
+                        // Navigate to full reviews view
+                    }) {
+                        HStack {
+                            Text("View All Reviews")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.orange)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            } else {
+                Text("No reviews available")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
     // MARK: - Categories View
     
     private var categoriesView: some View {
@@ -488,7 +632,124 @@ struct BusinessDetailsView: View {
         return text
     }
     
+    private func openDirections() {
+        let latitude = place.geocodes.main.latitude
+        let longitude = place.geocodes.main.longitude
+        let url = URL(string: "maps://?daddr=\(latitude),\(longitude)")!
+        
+        if UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+        } else {
+            // Fallback to Apple Maps web URL
+            let webURL = URL(string: "https://maps.apple.com/?daddr=\(latitude),\(longitude)")!
+            UIApplication.shared.open(webURL)
+        }
+    }
+    
     @State private var cancellables = Set<AnyCancellable>()
+    
+    private func checkFavoriteStatus() {
+        print("🔍 Checking favorite status for: \(place.name)")
+        
+        // If parent has favorite state, use it first (optimistic)
+        if let parentState = parentFavoriteState {
+            self.isFavorited = parentState
+            print("✅ Using parent favorite state for \(place.name): \(parentState)")
+        }
+        
+        apiService.checkFavoriteStatus(restaurantId: place.fsqId)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to check favorite status: \(error)")
+                        // Default to false if check fails
+                        self.isFavorited = false
+                        if parentFavoriteState != nil {
+                            parentFavoriteState = false
+                        }
+                    }
+                },
+                receiveValue: { isFavorited in
+                    self.isFavorited = isFavorited
+                    // Also update parent state if available
+                    if parentFavoriteState != nil {
+                        parentFavoriteState = isFavorited
+                    }
+                    print("✅ Favorite status for \(place.name): \(isFavorited)")
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func toggleFavorite() {
+        guard !isTogglingFavorite else { return }
+        
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Optimistic UI update - immediately toggle the heart
+        let previousState = isFavorited
+        isFavorited.toggle()
+        isTogglingFavorite = true
+        
+        // Also update parent state if available
+        if parentFavoriteState != nil {
+            parentFavoriteState = isFavorited
+            print("🔄 Updated parentFavoriteState to: \(isFavorited)")
+        }
+        
+        // Force view refresh
+        refreshID = UUID()
+        
+        print("🔄 Toggling favorite for: \(place.name)")
+        print("🔄 Local isFavorited: \(isFavorited)")
+        print("🔄 Parent favorite state: \(parentFavoriteState ?? false)")
+        print("🔄 Heart should show: \((parentFavoriteState ?? isFavorited) ? "RED" : "GRAY")")
+        print("🔄 Refresh ID updated: \(refreshID)")
+        
+        apiService.toggleFavorite(for: place)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isTogglingFavorite = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to toggle favorite: \(error)")
+                        // Add error haptic feedback
+                        let notificationFeedback = UINotificationFeedbackGenerator()
+                        notificationFeedback.notificationOccurred(.error)
+                        // Show error toast
+                        toastManager.show(Toast(message: "Failed to update favorites", type: .error, duration: 3.0))
+                        // Revert optimistic update on failure
+                        self.isFavorited = previousState
+                        if parentFavoriteState != nil {
+                            parentFavoriteState = previousState
+                        }
+                    }
+                },
+                receiveValue: { isFavorited in
+                    // Add success haptic feedback
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                    
+                    // Show success toast
+                    let message = isFavorited ? "Added to favorites" : "Removed from favorites"
+                    toastManager.show(Toast(message: message, type: .success, duration: 2.0))
+                    
+                    // Update with actual server response
+                    self.isFavorited = isFavorited
+                    if parentFavoriteState != nil {
+                        parentFavoriteState = isFavorited
+                    }
+                    // Force view refresh
+                    self.refreshID = UUID()
+                    print("✅ Favorite toggled for \(place.name): \(isFavorited)")
+                    print("✅ Refresh ID updated: \(self.refreshID)")
+                }
+            )
+            .store(in: &cancellables)
+    }
 }
 
 // MARK: - Contact Row

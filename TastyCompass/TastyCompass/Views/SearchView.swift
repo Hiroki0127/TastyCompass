@@ -17,6 +17,7 @@ struct SearchView: View {
     @State private var currentFilter = RestaurantFilter()
     @State private var searchCancellable: AnyCancellable?
     @State private var selectedRestaurant: Place?
+    @State private var restaurantFavoriteStates: [String: Bool] = [:]
     
     var body: some View {
         NavigationView {
@@ -53,7 +54,13 @@ struct SearchView: View {
                 }
             }
             .sheet(item: $selectedRestaurant) { restaurant in
-                BusinessDetailsView(place: restaurant)
+                BusinessDetailsView(
+                    place: restaurant,
+                    parentFavoriteState: Binding(
+                        get: { restaurantFavoriteStates[restaurant.fsqId] },
+                        set: { restaurantFavoriteStates[restaurant.fsqId] = $0 }
+                    )
+                )
             }
             .onAppear {
                 // Just check location status, don't auto-search
@@ -168,7 +175,13 @@ struct SearchView: View {
     private var restaurantListView: some View {
         List {
             ForEach(restaurants) { restaurant in
-                BusinessRowView(place: restaurant) {
+                BusinessRowView(
+                    place: restaurant,
+                    parentFavoriteState: Binding(
+                        get: { restaurantFavoriteStates[restaurant.fsqId] },
+                        set: { restaurantFavoriteStates[restaurant.fsqId] = $0 }
+                    )
+                ) {
                     selectedRestaurant = restaurant
                 } onFavoriteTap: {
                     // Favorite action is handled by BusinessRowView

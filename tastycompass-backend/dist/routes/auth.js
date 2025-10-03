@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const authService_1 = require("../services/authService");
 const userService_1 = require("../services/userService");
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // Register new user
 router.post('/register', async (req, res) => {
@@ -108,7 +109,7 @@ router.post('/login', async (req, res) => {
     }
 });
 // Get current user profile
-router.get('/me', async (req, res) => {
+router.get('/me', auth_1.authenticateToken, async (req, res) => {
     try {
         // This will be called after authenticateToken middleware
         const userId = req.user?.id;
@@ -136,7 +137,7 @@ router.get('/me', async (req, res) => {
     }
 });
 // Update user profile
-router.put('/me', async (req, res) => {
+router.put('/me', auth_1.authenticateToken, async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {

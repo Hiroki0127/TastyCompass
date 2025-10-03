@@ -4,24 +4,57 @@ import Foundation
 
 /// View for displaying and managing favorite restaurants
 struct FavoritesView: View {
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    @StateObject private var apiService = BackendAPIService.shared
     @State private var searchText = ""
     @State private var sortOption: FavoritesSortOption = .name
     @State private var showingClearAlert = false
     @State private var selectedPlace: Place?
+    @State private var favorites: [Place] = []
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    @State private var cancellables = Set<AnyCancellable>()
     
     private var filteredFavorites: [Place] {
         let searchResults = searchText.isEmpty ? 
-            favoritesManager.favoritePlaces : 
-            favoritesManager.searchFavorites(query: searchText)
+            favorites : 
+            favorites.filter { place in
+                place.name.localizedCaseInsensitiveContains(searchText)
+            }
         
-        return favoritesManager.sortFavorites(by: sortOption)
+        return sortFavorites(searchResults, by: sortOption)
+    }
+    
+    private func sortFavorites(_ favorites: [Place], by sortBy: FavoritesSortOption) -> [Place] {
+        switch sortBy {
+        case .name:
+            return favorites.sorted { $0.name < $1.name }
+        case .rating:
+            return favorites.sorted { (place1, place2) in
+                let rating1 = place1.rating ?? 0
+                let rating2 = place2.rating ?? 0
+                return rating1 > rating2
+            }
+        case .price:
+            return favorites.sorted { (place1, place2) in
+                let price1 = place1.price ?? 0
+                let price2 = place2.price ?? 0
+                return price1 < price2
+            }
+        case .dateAdded:
+            return favorites
+        }
     }
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                if favoritesManager.hasFavorites {
+                if isLoading {
+                    // Loading state
+                    loadingView
+                } else if let errorMessage = errorMessage {
+                    // Error state
+                    errorView(errorMessage)
+                } else if !favorites.isEmpty {
                     // Search and sort controls
                     controlsView
                     
@@ -36,7 +69,7 @@ struct FavoritesView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if favoritesManager.hasFavorites {
+                    if !favorites.isEmpty {
                         Menu {
                             Button("Sort by Name") {
                                 sortOption = .name
@@ -65,18 +98,98 @@ struct FavoritesView: View {
             .alert("Clear All Favorites", isPresented: $showingClearAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Clear All", role: .destructive) {
-                    favoritesManager.clearAllFavorites()
+                        clearAllFavorites()
                 }
             } message: {
-                Text("This will remove all \(favoritesManager.favoritesCount) favorite restaurants. This action cannot be undone.")
+                Text("This will remove all \(favorites.count) favorite restaurants. This action cannot be undone.")
             }
             .sheet(item: $selectedPlace) { place in
-                // This will be implemented when we create BusinessDetailsView
-                Text("Restaurant Details for \(place.name)")
-                    .padding()
+                BusinessDetailsView(place: place)
+            }
+        }
+        .onAppear {
+            loadFavorites()
+        }
+    }
+    
+    // MARK: - Loading View
+    
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.5)
+            
+            Text("Loading favorites...")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    // MARK: - Error View
+    
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(.orange)
+            
+            Text("Failed to load favorites")
+                .font(.headline)
+            
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            
+            Button("Retry") {
+                loadFavorites()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private func loadFavorites() {
+        isLoading = true
+        errorMessage = nil
+        
+        apiService.getAllFavorites()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    self.isLoading = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to load favorites: \(error)")
+                        self.errorMessage = error.localizedDescription
+                    }
+                },
+                receiveValue: { favorites in
+                    self.favorites = favorites
+                    print("✅ Loaded \(favorites.count) favorites")
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func clearAllFavorites() {
+        // For now, just clear the local array
+        // In a real implementation, you'd call apiService.clearAllFavorites()
+        favorites = []
+    }
+    
+    private func loadFavoritesAsync() async {
+        await withCheckedContinuation { continuation in
+            loadFavorites()
+            
+            // Wait for loading to complete
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                continuation.resume()
             }
         }
     }
+    
     
     // MARK: - Controls View
     
@@ -138,6 +251,9 @@ struct FavoritesView: View {
             .onDelete(perform: deleteFavorites)
         }
         .listStyle(PlainListStyle())
+        .refreshable {
+            await loadFavoritesAsync()
+        }
     }
     
     // MARK: - Empty State View
@@ -172,7 +288,8 @@ struct FavoritesView: View {
     private func deleteFavorites(offsets: IndexSet) {
         for index in offsets {
             let place = filteredFavorites[index]
-            favoritesManager.removeFromFavorites(place)
+            // Remove from favorites - for now just remove from local array
+            favorites.removeAll { $0.fsqId == place.fsqId }
         }
     }
 }
@@ -181,14 +298,19 @@ struct FavoritesView: View {
 
 /// A view showing statistics about favorites
 struct FavoritesStatsView: View {
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    let favorites: [Place]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your Favorites")
                 .font(.headline)
             
-            let stats = favoritesManager.favoritesStats
+            let stats = FavoritesStats(
+                totalCount: favorites.count,
+                averageRating: favorites.compactMap { $0.rating }.reduce(0, +) / Double(max(favorites.count, 1)),
+                priceDistribution: [:],
+                topCategories: []
+            )
             
             HStack {
                 VStack(alignment: .leading) {
@@ -252,7 +374,7 @@ struct FavoritesStatsView: View {
 
 /// A grid layout for favorites
 struct FavoritesGridView: View {
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    let favorites: [Place]
     @State private var searchText = ""
     @State private var sortOption: FavoritesSortOption = .name
     @State private var selectedPlace: Place?
@@ -264,16 +386,39 @@ struct FavoritesGridView: View {
     
     private var filteredFavorites: [Place] {
         let searchResults = searchText.isEmpty ? 
-            favoritesManager.favoritePlaces : 
-            favoritesManager.searchFavorites(query: searchText)
+            favorites : 
+            favorites.filter { place in
+                place.name.localizedCaseInsensitiveContains(searchText)
+            }
         
-        return favoritesManager.sortFavorites(by: sortOption)
+        return sortFavorites(searchResults, by: sortOption)
+    }
+    
+    private func sortFavorites(_ favorites: [Place], by sortBy: FavoritesSortOption) -> [Place] {
+        switch sortBy {
+        case .name:
+            return favorites.sorted { $0.name < $1.name }
+        case .rating:
+            return favorites.sorted { (place1, place2) in
+                let rating1 = place1.rating ?? 0
+                let rating2 = place2.rating ?? 0
+                return rating1 > rating2
+            }
+        case .price:
+            return favorites.sorted { (place1, place2) in
+                let price1 = place1.price ?? 0
+                let price2 = place2.price ?? 0
+                return price1 < price2
+            }
+        case .dateAdded:
+            return favorites
+        }
     }
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                if favoritesManager.hasFavorites {
+                if !favorites.isEmpty {
                     // Search bar
                     HStack {
                         Image(systemName: "magnifyingglass")
@@ -337,18 +482,18 @@ struct FavoritesGridView: View {
         }
     }
 }
-
-// MARK: - Preview
+    
+    // MARK: - Preview
 
 #Preview {
     FavoritesView()
 }
 
 #Preview("Grid View") {
-    FavoritesGridView()
+    FavoritesGridView(favorites: [])
 }
 
 #Preview("Stats View") {
-    FavoritesStatsView()
+    FavoritesStatsView(favorites: [])
         .padding()
 }
