@@ -29,6 +29,7 @@ app.get('/', (req, res) => {
 
 // Import routes
 import restaurantRoutes from './routes/restaurants';
+import authRoutes from './routes/auth';
 
 // API routes
 app.get('/api/health', (req, res) => {
@@ -38,6 +39,9 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Auth routes
+app.use('/api/auth', authRoutes);
 
 // Restaurant routes
 app.use('/api/restaurants', restaurantRoutes);
