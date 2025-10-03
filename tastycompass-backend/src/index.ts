@@ -27,7 +27,10 @@ app.get('/', (req, res) => {
   });
 });
 
-// API routes will go here
+// Import routes
+import restaurantRoutes from './routes/restaurants';
+
+// API routes
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -35,6 +38,9 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Restaurant routes
+app.use('/api/restaurants', restaurantRoutes);
 
 // Start server
 app.listen(PORT, () => {
