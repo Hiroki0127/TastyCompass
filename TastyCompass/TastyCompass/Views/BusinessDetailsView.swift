@@ -7,7 +7,7 @@ import Combine
 struct BusinessDetailsView: View {
     let place: Place
     @StateObject private var favoritesManager = FavoritesManager.shared
-    @StateObject private var apiService = GooglePlacesAPIService()
+    @StateObject private var apiService = BackendAPIService()
     
     @State private var showingShareSheet = false
     @State private var showingMap = false
@@ -453,7 +453,7 @@ struct BusinessDetailsView: View {
             print("🔄 Loading detailed photos for: \(place.name)")
             isLoadingDetails = true
             
-            apiService.getPlaceDetails(placeId: place.fsqId)
+            apiService.getRestaurantDetails(placeId: place.fsqId)
                 .receive(on: DispatchQueue.main)
                 .sink(
                     receiveCompletion: { completion in

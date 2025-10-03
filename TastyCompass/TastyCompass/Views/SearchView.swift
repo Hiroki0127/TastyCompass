@@ -5,7 +5,7 @@ import Foundation
 
 /// Main view for searching and displaying restaurants
 struct SearchView: View {
-    @StateObject private var apiService = GooglePlacesAPIService()
+    @StateObject private var apiService = BackendAPIService()
     @StateObject private var favoritesManager = FavoritesManager.shared
     @StateObject private var locationManager = LocationManager()
     
@@ -341,10 +341,12 @@ struct SearchView: View {
             .store(in: &cancellables)
         } else {
             print("🏙️ Using city-based search (San Francisco)")
-            // Fallback to city search
+            // Fallback to city search - create a San Francisco location
+            let sanFranciscoLocation = CLLocation(latitude: 37.7749, longitude: -122.4194)
             apiService.searchRestaurants(
-                query: searchText.isEmpty ? nil : searchText,
-                in: "San Francisco" // Default city
+                with: currentFilter,
+                near: sanFranciscoLocation,
+                query: searchText.isEmpty ? nil : searchText
             )
             .receive(on: DispatchQueue.main)
             .sink(
