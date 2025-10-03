@@ -153,11 +153,18 @@ class GooglePlacesAPIService: ObservableObject {
         
         return makeRequest(url: finalURL.absoluteString, responseType: GooglePlaceDetailsResponse.self)
             .map { response in
+                print("📋 Place Details Response: \(response.result.name)")
+                print("📸 Photos in response: \(response.result.photos?.count ?? 0)")
+                if let photos = response.result.photos {
+                    for (index, photo) in photos.enumerated() {
+                        print("  Photo \(index + 1): \(photo.photoReference)")
+                    }
+                }
                 // Convert GooglePlaceDetails to our Place model
                 let googlePlace = GooglePlace(
                     placeId: response.result.placeId,
                     name: response.result.name,
-                    types: response.result.types,
+                    types: response.result.types ?? [],
                     vicinity: response.result.formattedAddress,
                     geometry: GoogleGeometry(
                         location: GoogleLocation(lat: 0, lng: 0), // Will be filled from details if needed

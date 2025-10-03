@@ -108,7 +108,7 @@ struct GooglePlaceDetailsResponse: Codable {
 struct GooglePlaceDetails: Codable {
     let placeId: String
     let name: String
-    let types: [String]
+    let types: [String]?
     let formattedAddress: String?
     let formattedPhoneNumber: String?
     let website: String?
