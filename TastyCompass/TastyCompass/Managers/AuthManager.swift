@@ -1,82 +1,125 @@
-import Foundation
+import SwiftUI
 import Combine
+import Foundation
 
-/// Manages user authentication state and JWT token
+/// Manager for handling user authentication
 class AuthManager: ObservableObject {
-    static let shared = AuthManager()
-    
     @Published var isAuthenticated = false
     @Published var currentUser: User?
+    @Published var authToken: String?
     
-    private let tokenKey = "auth_token"
-    private let userKey = "current_user"
+    private let apiService = BackendAPIService.shared
+    private let userDefaults = UserDefaults.standard
     
-    private init() {
-        loadAuthState()
+    // Key for storing auth token
+    private let authTokenKey = "auth_token"
+    
+    var cancellables = Set<AnyCancellable>()
+    
+    init() {
+        // Check for existing auth token on init
+        loadStoredAuthToken()
     }
     
     // MARK: - Authentication Methods
     
-    func login(token: String, user: User) {
-        // Store token in UserDefaults
-        UserDefaults.standard.set(token, forKey: tokenKey)
+    func signUp(email: String, password: String) -> AnyPublisher<Bool, Error> {
+        return apiService.signUp(email: email, password: password)
+            .handleEvents(receiveOutput: { [weak self] response in
+                self?.handleAuthSuccess(token: response.token, user: response.user)
+            })
+            .map { _ in true }
+            .eraseToAnyPublisher()
+    }
+    
+    func signIn(email: String, password: String) -> AnyPublisher<Bool, Error> {
+        return apiService.signIn(email: email, password: password)
+            .handleEvents(receiveOutput: { [weak self] response in
+                self?.handleAuthSuccess(token: response.token, user: response.user)
+            })
+            .map { _ in true }
+            .eraseToAnyPublisher()
+    }
+    
+    func signOut() {
+        // Clear stored token
+        userDefaults.removeObject(forKey: authTokenKey)
         
-        // Store user data
-        if let userData = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(userData, forKey: userKey)
-        }
+        // Reset state
+        authToken = nil
+        currentUser = nil
+        isAuthenticated = false
+        
+        // Clear token from BackendAPIService
+        BackendAPIService.shared.authToken = nil
+        
+        print("✅ User signed out")
+    }
+    
+    // MARK: - Token Management
+    
+    private func handleAuthSuccess(token: String, user: User) {
+        // Store token
+        userDefaults.set(token, forKey: authTokenKey)
         
         // Update state
-        DispatchQueue.main.async {
-            self.isAuthenticated = true
-            self.currentUser = user
-        }
-        
-        print("✅ User logged in: \(user.email)")
-    }
-    
-    func logout() {
-        // Clear stored data
-        UserDefaults.standard.removeObject(forKey: tokenKey)
-        UserDefaults.standard.removeObject(forKey: userKey)
-        
-        // Update state
-        DispatchQueue.main.async {
-            self.isAuthenticated = false
-            self.currentUser = nil
-        }
-        
-        print("✅ User logged out")
-    }
-    
-    func getToken() -> String? {
-        return UserDefaults.standard.string(forKey: tokenKey)
-    }
-    
-    // MARK: - Private Methods
-    
-    private func loadAuthState() {
-        guard let token = UserDefaults.standard.string(forKey: tokenKey),
-              let userData = UserDefaults.standard.data(forKey: userKey),
-              let user = try? JSONDecoder().decode(User.self, from: userData) else {
-            isAuthenticated = false
-            currentUser = nil
-            return
-        }
-        
-        isAuthenticated = true
+        authToken = token
         currentUser = user
-        print("✅ Auth state loaded: \(user.email)")
+        isAuthenticated = true
+        
+        // Update BackendAPIService with the token
+        BackendAPIService.shared.authToken = token
+        
+        print("✅ Authentication successful for user: \(user.email)")
+    }
+    
+    private func loadStoredAuthToken() {
+        if let token = userDefaults.string(forKey: authTokenKey) {
+            authToken = token
+            // Update BackendAPIService with the stored token
+            BackendAPIService.shared.authToken = token
+            // TODO: Validate token with server
+            isAuthenticated = true
+            print("✅ Loaded stored auth token")
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    func getAuthHeader() -> [String: String] {
+        guard let token = authToken else { return [:] }
+        return ["Authorization": "Bearer \(token)"]
+    }
+    
+    var hasValidToken: Bool {
+        return authToken != nil && !authToken!.isEmpty
     }
 }
 
 // MARK: - User Model
 
-struct User: Codable {
+struct User: Codable, Identifiable {
     let id: String
     let email: String
     let firstName: String
     let lastName: String
     let createdAt: String
     let updatedAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case email
+        case firstName
+        case lastName
+        case createdAt
+        case updatedAt
+    }
+}
+
+// MARK: - Auth Response Models
+
+struct AuthResponse: Codable {
+    let message: String
+    let user: User
+    let token: String
 }

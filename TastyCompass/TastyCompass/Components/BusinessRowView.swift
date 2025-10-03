@@ -222,6 +222,7 @@ struct CompactBusinessRowView: View {
     let onFavoriteTap: (() -> Void)?
     
     @StateObject private var apiService = BackendAPIService.shared
+    @EnvironmentObject private var toastManager: ToastManager
     @State private var isFavorited = false
     @State private var isTogglingFavorite = false
     @State private var cancellables = Set<AnyCancellable>()
@@ -399,6 +400,7 @@ struct BusinessCardView: View {
     let onFavoriteTap: (() -> Void)?
     
     @StateObject private var apiService = BackendAPIService.shared
+    @EnvironmentObject private var toastManager: ToastManager
     @State private var isFavorited = false
     @State private var isTogglingFavorite = false
     @State private var cancellables = Set<AnyCancellable>()
@@ -607,6 +609,7 @@ struct ListBusinessRowView: View {
     let onFavoriteTap: (() -> Void)?
     
     @StateObject private var apiService = BackendAPIService.shared
+    @EnvironmentObject private var toastManager: ToastManager
     @State private var isFavorited = false
     @State private var isTogglingFavorite = false
     @State private var cancellables = Set<AnyCancellable>()

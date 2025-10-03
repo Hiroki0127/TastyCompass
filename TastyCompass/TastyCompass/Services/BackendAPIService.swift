@@ -9,7 +9,98 @@ class BackendAPIService: ObservableObject {
     private let baseURL = "http://localhost:3000/api"
     private let session = URLSession.shared
     
+    // Auth token for authenticated requests
+    @Published var authToken: String?
+    
     init() {}
+    
+    // MARK: - Authentication
+    
+    func signUp(email: String, password: String) -> AnyPublisher<AuthResponse, Error> {
+        guard let url = URL(string: "\(baseURL)/auth/register") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        let requestBody = [
+            "email": email,
+            "password": password,
+            "firstName": "User",
+            "lastName": "Name"
+        ]
+        
+        print("🌐 Signing in user: \(email)")
+        
+        return makeRequest(url: url, method: "POST", body: requestBody)
+            .decode(type: AuthResponse.self, decoder: JSONDecoder())
+            .handleEvents(
+                receiveOutput: { response in
+                    print("✅ Sign in successful: \(response.user.email)")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Sign in failed: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    func signIn(email: String, password: String) -> AnyPublisher<AuthResponse, Error> {
+        guard let url = URL(string: "\(baseURL)/auth/login") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        let requestBody = [
+            "email": email,
+            "password": password
+        ]
+        
+        print("🌐 Signing in user: \(email)")
+        
+        return makeRequest(url: url, method: "POST", body: requestBody)
+            .decode(type: AuthResponse.self, decoder: JSONDecoder())
+            .handleEvents(
+                receiveOutput: { [weak self] response in
+                    print("✅ Sign in successful: \(response.user.email)")
+                    self?.authToken = response.token
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Sign in failed: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func makeRequest(url: URL, method: String, body: [String: Any], requiresAuth: Bool = false) -> AnyPublisher<Data, Error> {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add authentication header if required and token is available
+        if requiresAuth, let token = authToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            return Fail(error: error)
+                .eraseToAnyPublisher()
+        }
+        
+        return session.dataTaskPublisher(for: request)
+            .map(\.data)
+            .mapError { error in
+                BackendAPIError.networkError(error)
+            }
+            .eraseToAnyPublisher()
+    }
     
     // MARK: - Restaurant Search
     
@@ -238,7 +329,7 @@ class BackendAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Add authentication token if available
-        if let token = AuthManager.shared.getToken() {
+        if let token = authToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         
@@ -294,7 +385,7 @@ class BackendAPIService: ObservableObject {
         request.httpMethod = "GET"
         
         // Add authentication token if available
-        if let token = AuthManager.shared.getToken() {
+        if let token = authToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         
@@ -333,7 +424,7 @@ class BackendAPIService: ObservableObject {
         request.httpMethod = "GET"
         
         // Add authentication token if available
-        if let token = AuthManager.shared.getToken() {
+        if let token = authToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         
