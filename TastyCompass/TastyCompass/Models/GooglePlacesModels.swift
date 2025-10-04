@@ -159,16 +159,67 @@ struct GoogleTime: Codable {
 }
 
 /// Review information
-struct GoogleReview: Codable {
-    let authorName: String
+struct GoogleReview: Codable, Identifiable {
+    let id: String
+    let author: String
     let rating: Int
-    let text: String?
-    let time: Int
+    let text: String
+    let time: Date
     
     enum CodingKeys: String, CodingKey {
-        case authorName = "author_name"
-        case rating, text, time
+        case id, author, rating, text, time
     }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        author = try container.decode(String.self, forKey: .author)
+        rating = try container.decode(Int.self, forKey: .rating)
+        text = try container.decode(String.self, forKey: .text)
+        
+        let timeString = try container.decode(String.self, forKey: .time)
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        guard let timeDate = formatter.date(from: timeString) else {
+            throw DecodingError.dataCorruptedError(forKey: .time, in: container, debugDescription: "Cannot decode date string")
+        }
+        time = timeDate
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(author, forKey: .author)
+        try container.encode(rating, forKey: .rating)
+        try container.encode(text, forKey: .text)
+        
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        try container.encode(formatter.string(from: time), forKey: .time)
+    }
+    
+    // Convenience initializer for previews and testing
+    init(
+        id: String,
+        author: String,
+        rating: Int,
+        text: String,
+        time: Date = Date()
+    ) {
+        self.id = id
+        self.author = author
+        self.rating = rating
+        self.text = text
+        self.time = time
+    }
+}
+
+struct GoogleReviewsResponse: Codable {
+    let reviews: [GoogleReview]
+    let totalReviews: Int
+    let averageRating: Double
+    let totalRatings: Int
 }
 
 // MARK: - Search Parameters

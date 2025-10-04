@@ -20,6 +20,21 @@ struct BusinessDetailsView: View {
     @State private var isTogglingFavorite = false
     @State private var refreshID = UUID() // Force view refresh
     
+    // Review states
+    @State private var reviews: [Review] = []
+    @State private var userReview: Review?
+    @State private var reviewStats: ReviewStats?
+    @State private var isLoadingReviews = false
+    @State private var showingReviewForm = false
+    @State private var showingAllReviews = false
+    
+    // Google Reviews
+    @State private var googleReviews: [GoogleReview] = []
+    @State private var isLoadingGoogleReviews = false
+    @State private var showingAllGoogleReviews = false
+    
+    @State private var cancellables = Set<AnyCancellable>()
+    
     // Optional binding to sync with parent view's favorite state
     @Binding var parentFavoriteState: Bool?
     
@@ -102,10 +117,70 @@ struct BusinessDetailsView: View {
                 selectedIndex: $selectedPhotoIndex
             )
         }
-       .onAppear {
-           loadPlaceDetails()
-           checkFavoriteStatus()
+            .onAppear {
+                loadPlaceDetails()
+                checkFavoriteStatus()
+                loadReviews()
+                loadGoogleReviews()
+            }
+       .sheet(isPresented: $showingReviewForm) {
+           ReviewFormView(
+               restaurantId: place.id,
+               restaurantName: place.name,
+               existingReview: userReview,
+               onSubmit: { request in
+                   createReview(request)
+               },
+               onUpdate: { reviewId, request in
+                   updateReview(reviewId, request)
+               },
+               onCancel: {
+                   showingReviewForm = false
+               }
+           )
        }
+        .sheet(isPresented: $showingAllReviews) {
+            NavigationView {
+                ReviewsListView(
+                    reviews: reviews,
+                    isLoading: isLoadingReviews,
+                    onLoadMore: nil,
+                    onHelpfulTap: { reviewId in
+                        markReviewHelpful(reviewId)
+                    },
+                    onReportTap: { reviewId in
+                        reportReview(reviewId)
+                    }
+                )
+                .navigationTitle("Reviews")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showingAllReviews = false
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingAllGoogleReviews) {
+            NavigationView {
+                GoogleReviewsListView(
+                    reviews: googleReviews,
+                    isLoading: isLoadingGoogleReviews,
+                    restaurantName: place.name
+                )
+                .navigationTitle("Google Reviews")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showingAllGoogleReviews = false
+                        }
+                    }
+                }
+            }
+        }
     }
     
     // MARK: - Hero Image View
@@ -225,23 +300,32 @@ struct BusinessDetailsView: View {
     
     private var ratingStatsView: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Rating
+            // Rating (clickable to show reviews)
             if let rating = place.rating {
-                HStack {
-                    StarRatingView(
-                        rating: rating,
-                        starSize: 20,
-                        showRating: true
-                    )
-                    
-                    Spacer()
-                    
-                    if let stats = place.stats, let totalRatings = stats.totalRatings {
-                        Text("\(totalRatings) reviews")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                Button(action: {
+                    showingAllGoogleReviews = true
+                }) {
+                    HStack {
+                        StarRatingView(
+                            rating: rating,
+                            starSize: 20,
+                            showRating: true
+                        )
+                        
+                        Spacer()
+                        
+                        if let stats = place.stats, let totalRatings = stats.totalRatings {
+                            Text("\(totalRatings) reviews")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
+                .buttonStyle(PlainButtonStyle())
             }
             
             // Price and distance
@@ -465,93 +549,117 @@ struct BusinessDetailsView: View {
     // MARK: - Reviews View
     
     private var reviewsView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Reviews")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                if let stats = place.stats, let totalRatings = stats.totalRatings {
-                    Text("(\(totalRatings))")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
+        VStack(alignment: .leading, spacing: 16) {
+            // Header with review stats
+            if let stats = reviewStats, stats.totalRatings > 0 {
+                ReviewStatsView(
+                    averageRating: stats.averageRating,
+                    totalRatings: stats.totalRatings,
+                    ratingDistribution: stats.ratingDistribution
+                )
             }
             
-            if let rating = place.rating {
+            // User review section
+            if let userReview = userReview {
                 VStack(alignment: .leading, spacing: 8) {
-                    // Rating overview
                     HStack {
-                        StarRatingView(
-                            rating: rating,
-                            starSize: 24,
-                            showRating: true
-                        )
+                        Text("Your Review")
+                            .font(.headline)
+                            .fontWeight(.semibold)
                         
                         Spacer()
                         
-                        if let stats = place.stats, let totalRatings = stats.totalRatings {
-                            VStack(alignment: .trailing) {
-                                Text("\(totalRatings) reviews")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                
-                                Text("Based on user reviews")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                        Button("Edit") {
+                            showingReviewForm = true
                         }
+                        .font(.subheadline)
+                        .foregroundColor(.blue)
                     }
                     
-                    // Sample review (placeholder)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Sample Review")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            Spacer()
-                            
-                            StarRatingView(
-                                rating: 5.0,
-                                starSize: 12,
-                                showRating: false
-                            )
-                        }
-                        
-                        Text("This is a placeholder review. In a real implementation, you would fetch actual reviews from your backend or a reviews API like Google Places API.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(3)
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
-                    
-                    // View all reviews button
-                    Button(action: {
-                        // Navigate to full reviews view
-                    }) {
-                        HStack {
-                            Text("View All Reviews")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                        }
-                        .foregroundColor(.orange)
-                    }
-                    .buttonStyle(PlainButtonStyle())
+                    ReviewRowView(review: userReview)
                 }
             } else {
-                Text("No reviews available")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                // Write review button
+                Button(action: {
+                    showingReviewForm = true
+                }) {
+                    HStack {
+                        Image(systemName: "star")
+                            .foregroundColor(.orange)
+                        
+                        Text("Write a Review")
+                            .fontWeight(.medium)
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.primary)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+            // Recent reviews section
+            if !reviews.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Recent Reviews")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        Button("View All") {
+                            showingAllReviews = true
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.blue)
+                    }
+                    
+                    // Show first 2 reviews
+                    ForEach(Array(reviews.prefix(2))) { review in
+                        ReviewRowView(
+                            review: review,
+                            onHelpfulTap: {
+                                markReviewHelpful(review.id)
+                            },
+                            onReportTap: {
+                                reportReview(review.id)
+                            }
+                        )
+                    }
+                }
+            } else if isLoadingReviews {
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    
+                    Text("Loading reviews...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            } else if reviewStats?.totalRatings == 0 {
+                VStack(spacing: 8) {
+                    Image(systemName: "star.slash")
+                        .font(.title2)
+                        .foregroundColor(.gray)
+                    
+                    Text("No reviews yet")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Be the first to share your experience!")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
             }
         }
     }
@@ -645,8 +753,6 @@ struct BusinessDetailsView: View {
             UIApplication.shared.open(webURL)
         }
     }
-    
-    @State private var cancellables = Set<AnyCancellable>()
     
     private func checkFavoriteStatus() {
         print("🔍 Checking favorite status for: \(place.name)")
@@ -922,6 +1028,156 @@ struct PhotoGalleryView: View {
                 Spacer()
             }
         }
+    }
+}
+
+// MARK: - Review Functions Extension
+
+extension BusinessDetailsView {
+    
+    private func loadReviews() {
+        guard apiService.authToken != nil else { return }
+        
+        isLoadingReviews = true
+        
+        // Load review stats
+        apiService.getReviewStats(for: place.id)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to load review stats: \(error)")
+                    }
+                    isLoadingReviews = false
+                },
+                receiveValue: { stats in
+                    reviewStats = stats
+                }
+            )
+            .store(in: &cancellables)
+        
+        // Load reviews
+        apiService.getReviews(for: place.id)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to load reviews: \(error)")
+                    }
+                },
+                receiveValue: { response in
+                    reviews = response.reviews
+                }
+            )
+            .store(in: &cancellables)
+        
+        // Load user's review
+        apiService.getUserReview(for: place.id)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to load user review: \(error)")
+                    }
+                },
+                receiveValue: { response in
+                    userReview = response?.review
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func loadGoogleReviews() {
+        isLoadingGoogleReviews = true
+        
+        apiService.getGoogleReviews(for: place.id)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to load Google reviews: \(error)")
+                    }
+                    isLoadingGoogleReviews = false
+                },
+                receiveValue: { response in
+                    googleReviews = response.reviews
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func createReview(_ request: CreateReviewRequest) {
+        apiService.createReview(request)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to create review: \(error)")
+                        toastManager.show(Toast(message: "Failed to create review", type: .error, duration: 3.0))
+                    }
+                },
+                receiveValue: { response in
+                    userReview = response.review
+                    showingReviewForm = false
+                    toastManager.show(Toast(message: "Review created successfully!", type: .success, duration: 3.0))
+                    loadReviews() // Refresh reviews
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func updateReview(_ reviewId: String, _ request: UpdateReviewRequest) {
+        apiService.updateReview(reviewId, request)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to update review: \(error)")
+                        toastManager.show(Toast(message: "Failed to update review", type: .error, duration: 3.0))
+                    }
+                },
+                receiveValue: { response in
+                    userReview = response.review
+                    showingReviewForm = false
+                    toastManager.show(Toast(message: "Review updated successfully!", type: .success, duration: 3.0))
+                    loadReviews() // Refresh reviews
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func markReviewHelpful(_ reviewId: String) {
+        apiService.markReviewHelpful(reviewId)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to mark review helpful: \(error)")
+                    }
+                },
+                receiveValue: { _ in
+                    // Refresh reviews to update helpful count
+                    loadReviews()
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func reportReview(_ reviewId: String) {
+        apiService.reportReview(reviewId)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to report review: \(error)")
+                        toastManager.show(Toast(message: "Failed to report review", type: .error, duration: 3.0))
+                    }
+                },
+                receiveValue: { _ in
+                    toastManager.show(Toast(message: "Review reported successfully", type: .success, duration: 3.0))
+                }
+            )
+            .store(in: &cancellables)
     }
 }
 

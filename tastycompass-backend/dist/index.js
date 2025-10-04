@@ -31,6 +31,7 @@ app.get('/', (req, res) => {
 const restaurants_1 = __importDefault(require("./routes/restaurants"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const favorites_1 = __importDefault(require("./routes/favorites"));
+const reviews_1 = __importDefault(require("./routes/reviews"));
 // API routes
 app.get('/api/health', (req, res) => {
     res.json({
@@ -45,6 +46,8 @@ app.use('/api/auth', auth_1.default);
 app.use('/api/restaurants', restaurants_1.default);
 // Favorite routes
 app.use('/api/favorites', favorites_1.default);
+// Review routes
+app.use('/api/reviews', reviews_1.default);
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);

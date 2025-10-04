@@ -99,4 +99,34 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// GET /api/restaurants/:id/google-reviews
+router.get('/:id/google-reviews', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        error: 'Restaurant ID is required'
+      });
+    }
+
+    // Get restaurant details with Google reviews
+    const restaurant = await googlePlacesService.getRestaurantDetails(id);
+
+    res.json({
+      reviews: restaurant.reviews || [],
+      totalReviews: restaurant.reviews?.length || 0,
+      averageRating: restaurant.rating,
+      totalRatings: restaurant.totalRatings || 0
+    });
+
+  } catch (error) {
+    console.error('Google reviews error:', error);
+    res.status(500).json({
+      error: 'Failed to get Google reviews',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;

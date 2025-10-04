@@ -598,6 +598,261 @@ class BackendAPIService: ObservableObject {
             socialMedia: nil
         )
     }
+    
+    // MARK: - Reviews
+    
+    func getReviews(for restaurantId: String, limit: Int = 20, offset: Int = 0) -> AnyPublisher<ReviewsResponse, Error> {
+        guard let url = URL(string: "\(baseURL)/reviews/restaurant/\(restaurantId)?limit=\(limit)&offset=\(offset)") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Getting reviews for restaurant: \(restaurantId)")
+        
+        return makeRequest(url: url, method: "GET", body: [:])
+            .decode(type: ReviewsResponse.self, decoder: JSONDecoder())
+            .handleEvents(
+                receiveOutput: { response in
+                    print("✅ Got \(response.reviews.count) reviews for restaurant")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to get reviews: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    func getUserReview(for restaurantId: String) -> AnyPublisher<ReviewResponse?, Error> {
+        guard let url = URL(string: "\(baseURL)/reviews/restaurant/\(restaurantId)/user") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Getting user review for restaurant: \(restaurantId)")
+        
+        return makeRequest(url: url, method: "GET", body: [:], requiresAuth: true)
+            .handleEvents(
+                receiveOutput: { data in
+                    let responseBody = String(data: data, encoding: .utf8) ?? "N/A"
+                    print("🔍 Raw user review response: \(responseBody)")
+                }
+            )
+            .decode(type: ReviewResponse.self, decoder: JSONDecoder())
+            .map { response in
+                return Optional(response)
+            }
+            .catch { error -> AnyPublisher<ReviewResponse?, Error> in
+                // Handle 404 (no review found) as nil
+                if let backendError = error as? BackendAPIError,
+                   case .networkError(let networkError) = backendError,
+                   let nsError = networkError as NSError?,
+                   nsError.code == 404 {
+                    return Just(nil).setFailureType(to: Error.self).eraseToAnyPublisher()
+                }
+                return Fail(error: error).eraseToAnyPublisher()
+            }
+            .handleEvents(
+                receiveOutput: { response in
+                    if let response = response {
+                        print("✅ Got user review for restaurant")
+                    } else {
+                        print("ℹ️ No user review found for restaurant")
+                    }
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to get user review: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    func createReview(_ request: CreateReviewRequest) -> AnyPublisher<ReviewResponse, Error> {
+        guard let url = URL(string: "\(baseURL)/reviews") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        let requestBody: [String: Any] = [
+            "restaurantId": request.restaurantId,
+            "rating": request.rating,
+            "title": request.title as Any,
+            "content": request.content
+        ]
+        
+        print("🌐 Creating review for restaurant: \(request.restaurantId)")
+        
+        return makeRequest(url: url, method: "POST", body: requestBody, requiresAuth: true)
+            .decode(type: ReviewResponse.self, decoder: JSONDecoder())
+            .handleEvents(
+                receiveOutput: { response in
+                    print("✅ Created review successfully")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to create review: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    func updateReview(_ reviewId: String, _ request: UpdateReviewRequest) -> AnyPublisher<ReviewResponse, Error> {
+        guard let url = URL(string: "\(baseURL)/reviews/\(reviewId)") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        var requestBody: [String: Any] = [:]
+        if let rating = request.rating {
+            requestBody["rating"] = rating
+        }
+        if let title = request.title {
+            requestBody["title"] = title
+        }
+        if let content = request.content {
+            requestBody["content"] = content
+        }
+        
+        print("🌐 Updating review: \(reviewId)")
+        
+        return makeRequest(url: url, method: "PUT", body: requestBody, requiresAuth: true)
+            .decode(type: ReviewResponse.self, decoder: JSONDecoder())
+            .handleEvents(
+                receiveOutput: { response in
+                    print("✅ Updated review successfully")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to update review: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    func deleteReview(_ reviewId: String) -> AnyPublisher<Void, Error> {
+        guard let url = URL(string: "\(baseURL)/reviews/\(reviewId)") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Deleting review: \(reviewId)")
+        
+        return makeRequest(url: url, method: "DELETE", body: [:], requiresAuth: true)
+            .map { _ in () }
+            .handleEvents(
+                receiveOutput: { _ in
+                    print("✅ Deleted review successfully")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to delete review: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    func markReviewHelpful(_ reviewId: String) -> AnyPublisher<Int, Error> {
+        guard let url = URL(string: "\(baseURL)/reviews/\(reviewId)/helpful") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Marking review helpful: \(reviewId)")
+        
+        return makeRequest(url: url, method: "POST", body: [:])
+            .tryMap { data in
+                let response = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                return response?["helpfulCount"] as? Int ?? 0
+            }
+            .handleEvents(
+                receiveOutput: { helpfulCount in
+                    print("✅ Marked review helpful: \(helpfulCount)")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to mark review helpful: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    func reportReview(_ reviewId: String) -> AnyPublisher<Void, Error> {
+        guard let url = URL(string: "\(baseURL)/reviews/\(reviewId)/report") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Reporting review: \(reviewId)")
+        
+        return makeRequest(url: url, method: "POST", body: [:])
+            .map { _ in () }
+            .handleEvents(
+                receiveOutput: { _ in
+                    print("✅ Reported review successfully")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to report review: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Google Reviews
+    
+    func getGoogleReviews(for restaurantId: String) -> AnyPublisher<GoogleReviewsResponse, Error> {
+        guard let url = URL(string: "\(baseURL)/restaurants/\(restaurantId)/google-reviews") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Getting Google reviews for restaurant: \(restaurantId)")
+        
+        return makeRequest(url: url, method: "GET", body: [:])
+            .decode(type: GoogleReviewsResponse.self, decoder: JSONDecoder())
+            .handleEvents(
+                receiveOutput: { response in
+                    print("✅ Got Google reviews: \(response.reviews.count) reviews")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to get Google reviews: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    func getReviewStats(for restaurantId: String) -> AnyPublisher<ReviewStats, Error> {
+        guard let url = URL(string: "\(baseURL)/reviews/restaurant/\(restaurantId)/stats") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Getting review stats for restaurant: \(restaurantId)")
+        
+        return makeRequest(url: url, method: "GET", body: [:])
+            .decode(type: ReviewStats.self, decoder: JSONDecoder())
+            .handleEvents(
+                receiveOutput: { stats in
+                    print("✅ Got review stats: avg \(stats.averageRating), total \(stats.totalRatings)")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to get review stats: \(error)")
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
+    }
 }
 
 // MARK: - Backend API Models
