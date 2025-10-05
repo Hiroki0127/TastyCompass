@@ -1,8 +1,8 @@
-# TastyCompass 🍽️
+# TastyCompass 
 
 A modern iOS restaurant discovery app built with SwiftUI and Node.js backend, featuring location-based restaurant search, user reviews, favorites, and Google Places integration.
 
-## ✨ Features
+## Features
 
 ### Core Functionality
 - **🔍 Location-Based Search**: Find restaurants near you using GPS coordinates
