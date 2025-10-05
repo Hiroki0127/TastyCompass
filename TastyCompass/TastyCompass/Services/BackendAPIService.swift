@@ -116,6 +116,23 @@ class BackendAPIService: ObservableObject {
             .eraseToAnyPublisher()
     }
     
+    private func makeRequest(url: URL, method: String, requiresAuth: Bool = false) -> AnyPublisher<Data, Error> {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        
+        // Add authentication header if required and token is available
+        if requiresAuth, let token = authToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        return session.dataTaskPublisher(for: request)
+            .map(\.data)
+            .mapError { error in
+                BackendAPIError.networkError(error)
+            }
+            .eraseToAnyPublisher()
+    }
+    
     // MARK: - Restaurant Search
     
     func searchRestaurants(
@@ -808,19 +825,30 @@ class BackendAPIService: ObservableObject {
     
     // MARK: - Google Reviews
     
-    func getGoogleReviews(for restaurantId: String) -> AnyPublisher<GoogleReviewsResponse, Error> {
-        guard let url = URL(string: "\(baseURL)/restaurants/\(restaurantId)/google-reviews") else {
+    func getGoogleReviews(for restaurantId: String, page: Int = 1, limit: Int = 10) -> AnyPublisher<GoogleReviewsResponse, Error> {
+        guard var urlComponents = URLComponents(string: "\(baseURL)/restaurants/\(restaurantId)/google-reviews") else {
             return Fail(error: BackendAPIError.invalidURL)
                 .eraseToAnyPublisher()
         }
         
-        print("🌐 Getting Google reviews for restaurant: \(restaurantId)")
+        // Add pagination parameters
+        urlComponents.queryItems = [
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "limit", value: String(limit))
+        ]
         
-        return makeRequest(url: url, method: "GET", body: [:])
+        guard let url = urlComponents.url else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        print("🌐 Getting Google reviews for restaurant: \(restaurantId) (page: \(page), limit: \(limit))")
+        
+        return makeRequest(url: url, method: "GET")
             .decode(type: GoogleReviewsResponse.self, decoder: JSONDecoder())
             .handleEvents(
                 receiveOutput: { response in
-                    print("✅ Got Google reviews: \(response.reviews.count) reviews")
+                    print("✅ Got Google reviews: \(response.reviews.count) reviews (page \(response.pagination.currentPage)/\(response.pagination.totalPages))")
                 },
                 receiveCompletion: { completion in
                     if case .failure(let error) = completion {

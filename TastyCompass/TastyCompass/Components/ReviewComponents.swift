@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import Combine
 
 // MARK: - Review Row Component
 
@@ -519,13 +520,21 @@ struct GoogleReviewRowView: View {
 }
 
 struct GoogleReviewsListView: View {
-    let reviews: [GoogleReview]
-    let isLoading: Bool
+    let restaurantId: String
     let restaurantName: String
+    
+    @State private var reviews: [GoogleReview] = []
+    @State private var isLoading = true
+    @State private var currentPage = 1
+    @State private var totalPages = 1
+    @State private var totalReviews = 0
+    @State private var isLoadingMore = false
+    
+    @EnvironmentObject private var apiService: BackendAPIService
     
     var body: some View {
         VStack {
-            if isLoading {
+            if isLoading && reviews.isEmpty {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.2)
@@ -553,10 +562,47 @@ struct GoogleReviewsListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
+                    // Header with total count
+                    HStack {
+                        Text("\(totalReviews) Google Reviews")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        Text("Page \(currentPage) of \(totalPages)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    
                     ForEach(reviews) { review in
                         GoogleReviewRowView(review: review)
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
+                    }
+                    
+                    // Load more button
+                    if currentPage < totalPages {
+                        Button(action: loadMoreReviews) {
+                            HStack {
+                                if isLoadingMore {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "arrow.down.circle")
+                                }
+                                Text(isLoadingMore ? "Loading..." : "Load More Reviews")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(10)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
                 }
                 .listStyle(PlainListStyle())
@@ -564,7 +610,58 @@ struct GoogleReviewsListView: View {
         }
         .navigationTitle("Google Reviews")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            loadReviews()
+        }
     }
+    
+    private func loadReviews() {
+        isLoading = true
+        
+        apiService.getGoogleReviews(for: restaurantId, page: 1, limit: 10)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isLoading = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to load Google reviews: \(error)")
+                    }
+                },
+                receiveValue: { response in
+                    reviews = response.reviews
+                    currentPage = response.pagination.currentPage
+                    totalPages = response.pagination.totalPages
+                    totalReviews = response.totalReviews
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func loadMoreReviews() {
+        guard currentPage < totalPages && !isLoadingMore else { return }
+        
+        isLoadingMore = true
+        let nextPage = currentPage + 1
+        
+        apiService.getGoogleReviews(for: restaurantId, page: nextPage, limit: 10)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isLoadingMore = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to load more Google reviews: \(error)")
+                    }
+                },
+                receiveValue: { response in
+                    reviews.append(contentsOf: response.reviews)
+                    currentPage = response.pagination.currentPage
+                    totalPages = response.pagination.totalPages
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    @State private var cancellables = Set<AnyCancellable>()
 }
 
 #Preview("Google Review Row View") {
@@ -583,24 +680,9 @@ struct GoogleReviewsListView: View {
 #Preview("Google Reviews List View") {
     NavigationView {
         GoogleReviewsListView(
-            reviews: [
-                GoogleReview(
-                    id: "google_review_1",
-                    author: "Sarah Johnson",
-                    rating: 5,
-                    text: "Amazing food and great service! The pasta was incredible and the atmosphere was perfect for a date night.",
-                    time: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date()
-                ),
-                GoogleReview(
-                    id: "google_review_2",
-                    author: "Mike Chen",
-                    rating: 4,
-                    text: "Good food and reasonable prices. The service was friendly but a bit slow during peak hours.",
-                    time: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-                )
-            ],
-            isLoading: false,
+            restaurantId: "sample_restaurant_id",
             restaurantName: "Sample Restaurant"
         )
     }
+    .environmentObject(BackendAPIService())
 }

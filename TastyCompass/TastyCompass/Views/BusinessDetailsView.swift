@@ -29,8 +29,6 @@ struct BusinessDetailsView: View {
     @State private var showingAllReviews = false
     
     // Google Reviews
-    @State private var googleReviews: [GoogleReview] = []
-    @State private var isLoadingGoogleReviews = false
     @State private var showingAllGoogleReviews = false
     
     @State private var cancellables = Set<AnyCancellable>()
@@ -56,7 +54,7 @@ struct BusinessDetailsView: View {
     }
     
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
                 // Hero image
                 heroImageView
@@ -92,7 +90,7 @@ struct BusinessDetailsView: View {
         }
         .navigationTitle(place.name)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
+        .toolbar(content: {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack {
                     // Share button
@@ -104,7 +102,7 @@ struct BusinessDetailsView: View {
                     
                 }
             }
-        }
+        })
         .sheet(isPresented: $showingShareSheet) {
             ShareSheet(items: [shareText])
         }
@@ -121,7 +119,6 @@ struct BusinessDetailsView: View {
                 loadPlaceDetails()
                 checkFavoriteStatus()
                 loadReviews()
-                loadGoogleReviews()
             }
        .sheet(isPresented: $showingReviewForm) {
            ReviewFormView(
@@ -154,31 +151,28 @@ struct BusinessDetailsView: View {
                 )
                 .navigationTitle("Reviews")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
+                .toolbar(content: {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") {
                             showingAllReviews = false
                         }
                     }
-                }
+                })
             }
         }
         .sheet(isPresented: $showingAllGoogleReviews) {
             NavigationView {
                 GoogleReviewsListView(
-                    reviews: googleReviews,
-                    isLoading: isLoadingGoogleReviews,
+                    restaurantId: place.id,
                     restaurantName: place.name
                 )
-                .navigationTitle("Google Reviews")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
+                .toolbar(content: {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") {
                             showingAllGoogleReviews = false
                         }
                     }
-                }
+                })
             }
         }
     }
@@ -303,6 +297,9 @@ struct BusinessDetailsView: View {
             // Rating (clickable to show reviews)
             if let rating = place.rating {
                 Button(action: {
+                    print("🔘 Rating button tapped!")
+                    print("🔘 Restaurant ID: \(place.id)")
+                    print("🔘 Restaurant name: \(place.name)")
                     showingAllGoogleReviews = true
                 }) {
                     HStack {
@@ -324,6 +321,7 @@ struct BusinessDetailsView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+                    .background(Color.blue.opacity(0.1))
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -1087,24 +1085,6 @@ extension BusinessDetailsView {
             .store(in: &cancellables)
     }
     
-    private func loadGoogleReviews() {
-        isLoadingGoogleReviews = true
-        
-        apiService.getGoogleReviews(for: place.id)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { completion in
-                    if case .failure(let error) = completion {
-                        print("❌ Failed to load Google reviews: \(error)")
-                    }
-                    isLoadingGoogleReviews = false
-                },
-                receiveValue: { response in
-                    googleReviews = response.reviews
-                }
-            )
-            .store(in: &cancellables)
-    }
     
     private func createReview(_ request: CreateReviewRequest) {
         apiService.createReview(request)

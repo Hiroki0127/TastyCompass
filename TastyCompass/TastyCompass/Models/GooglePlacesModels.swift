@@ -178,13 +178,43 @@ struct GoogleReview: Codable, Identifiable {
         text = try container.decode(String.self, forKey: .text)
         
         let timeString = try container.decode(String.self, forKey: .time)
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         
-        guard let timeDate = formatter.date(from: timeString) else {
-            throw DecodingError.dataCorruptedError(forKey: .time, in: container, debugDescription: "Cannot decode date string")
+        // Try multiple date formats to handle different ISO8601 variants
+        var timeDate: Date?
+        
+        // Try ISO8601 with fractional seconds first
+        let iso8601WithFractional = ISO8601DateFormatter()
+        iso8601WithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso8601WithFractional.date(from: timeString) {
+            timeDate = date
         }
-        time = timeDate
+        
+        // Try ISO8601 without fractional seconds
+        if timeDate == nil {
+            let iso8601WithoutFractional = ISO8601DateFormatter()
+            iso8601WithoutFractional.formatOptions = [.withInternetDateTime]
+            if let date = iso8601WithoutFractional.date(from: timeString) {
+                timeDate = date
+            }
+        }
+        
+        // Try custom DateFormatter as fallback
+        if timeDate == nil {
+            let customFormatter = DateFormatter()
+            customFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+            customFormatter.timeZone = TimeZone(abbreviation: "UTC")
+            if let date = customFormatter.date(from: timeString) {
+                timeDate = date
+            }
+        }
+        
+        guard let validDate = timeDate else {
+            print("⚠️ Failed to parse date: \(timeString)")
+            // Fallback to current date if parsing fails
+            time = Date()
+            return
+        }
+        time = validDate
     }
     
     func encode(to encoder: Encoder) throws {
@@ -215,11 +245,20 @@ struct GoogleReview: Codable, Identifiable {
     }
 }
 
+struct GooglePagination: Codable {
+    let currentPage: Int
+    let totalPages: Int
+    let hasNextPage: Bool
+    let hasPrevPage: Bool
+    let limit: Int
+}
+
 struct GoogleReviewsResponse: Codable {
     let reviews: [GoogleReview]
     let totalReviews: Int
     let averageRating: Double
     let totalRatings: Int
+    let pagination: GooglePagination
 }
 
 // MARK: - Search Parameters
