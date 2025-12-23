@@ -9,6 +9,8 @@ const helmet_1 = __importDefault(require("helmet"));
 const morgan_1 = __importDefault(require("morgan"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const connection_1 = require("./database/connection");
+const serviceFactory_1 = require("./services/serviceFactory");
+const authService_1 = require("./services/authService");
 // Load environment variables
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -50,6 +52,32 @@ app.use('/api/restaurants', restaurants_1.default);
 app.use('/api/favorites', favorites_1.default);
 // Review routes
 app.use('/api/reviews', reviews_1.default);
+// Initialize demo account for testing
+const initializeDemoAccount = async () => {
+    try {
+        const demoEmail = 'demo@tastycompass.com';
+        const demoPassword = 'demo123';
+        // Check if demo account already exists
+        const existingUser = await serviceFactory_1.UserService.findUserByEmail(demoEmail);
+        if (existingUser) {
+            console.log('✅ Demo account already exists');
+            return;
+        }
+        // Create demo account
+        const hashedPassword = await authService_1.AuthService.hashPassword(demoPassword);
+        await serviceFactory_1.UserService.createUser({
+            email: demoEmail,
+            password: hashedPassword,
+            firstName: 'Demo',
+            lastName: 'User'
+        });
+        console.log('✅ Demo account created (email: demo@tastycompass.com, password: demo123)');
+    }
+    catch (error) {
+        console.error('⚠️ Failed to create demo account:', error);
+        // Don't throw - demo account is optional
+    }
+};
 // Initialize database and start server
 const startServer = async () => {
     if (USE_POSTGRES) {
@@ -65,6 +93,8 @@ const startServer = async () => {
     }
     else {
         console.log('💾 Storage: In-memory (data will reset on restart)');
+        // Initialize demo account for in-memory storage
+        await initializeDemoAccount();
     }
     app.listen(PORT, () => {
         console.log(`🚀 Server running on port ${PORT}`);

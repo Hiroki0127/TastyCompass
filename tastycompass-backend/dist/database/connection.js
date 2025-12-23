@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.initializeDatabase = exports.testConnection = void 0;
 const pg_1 = require("pg");
 const dotenv_1 = __importDefault(require("dotenv"));
+const serviceFactory_1 = require("../services/serviceFactory");
+const authService_1 = require("../services/authService");
 dotenv_1.default.config();
 // Database connection configuration
 const pool = new pg_1.Pool({
@@ -15,6 +17,32 @@ const pool = new pg_1.Pool({
     password: process.env.DB_PASSWORD || 'password',
     port: parseInt(process.env.DB_PORT || '5432'),
 });
+// Initialize demo account for testing
+const initializeDemoAccount = async () => {
+    try {
+        const demoEmail = 'demo@tastycompass.com';
+        const demoPassword = 'demo123';
+        // Check if demo account already exists
+        const existingUser = await serviceFactory_1.UserService.findUserByEmail(demoEmail);
+        if (existingUser) {
+            console.log('✅ Demo account already exists');
+            return;
+        }
+        // Create demo account
+        const hashedPassword = await authService_1.AuthService.hashPassword(demoPassword);
+        await serviceFactory_1.UserService.createUser({
+            email: demoEmail,
+            password: hashedPassword,
+            firstName: 'Demo',
+            lastName: 'User'
+        });
+        console.log('✅ Demo account created (email: demo@tastycompass.com, password: demo123)');
+    }
+    catch (error) {
+        console.error('⚠️ Failed to create demo account:', error);
+        // Don't throw - demo account is optional
+    }
+};
 // Test database connection
 const testConnection = async () => {
     try {
@@ -111,6 +139,8 @@ const initializeDatabase = async () => {
         EXECUTE FUNCTION update_updated_at_column();
     `);
         console.log('✅ Database schema initialized successfully');
+        // Initialize demo account
+        await initializeDemoAccount();
     }
     catch (error) {
         console.error('❌ Database initialization failed:', error);

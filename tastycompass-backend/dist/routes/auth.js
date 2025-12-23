@@ -38,12 +38,10 @@ router.post('/register', async (req, res) => {
                 message: 'A user with this email already exists'
             });
         }
-        // Hash password
-        const hashedPassword = await authService_1.AuthService.hashPassword(password);
-        // Create user
+        // Create user (UserService will hash the password)
         const user = await serviceFactory_1.UserService.createUser({
             email,
-            password: hashedPassword,
+            password,
             firstName,
             lastName,
         });
