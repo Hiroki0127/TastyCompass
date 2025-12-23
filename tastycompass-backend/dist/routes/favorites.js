@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const favoriteService_1 = require("../services/favoriteService");
+const serviceFactory_1 = require("../services/serviceFactory");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // Get user's favorites (requires authentication)
@@ -14,7 +14,7 @@ router.get('/', auth_1.authenticateToken, async (req, res) => {
             });
         }
         // Get favorites with restaurant details
-        const favorites = await favoriteService_1.FavoriteService.getUserFavoritesWithDetails(userId);
+        const favorites = await serviceFactory_1.FavoriteService.getUserFavoritesWithDetails(userId);
         res.json({
             message: 'Favorites retrieved successfully',
             favorites,
@@ -38,7 +38,7 @@ router.get('/count', auth_1.authenticateToken, async (req, res) => {
                 error: 'Not authenticated'
             });
         }
-        const count = await favoriteService_1.FavoriteService.getFavoriteCount(userId);
+        const count = await serviceFactory_1.FavoriteService.getFavoriteCount(userId);
         res.json({
             count,
         });
@@ -62,7 +62,7 @@ router.get('/check/:restaurantId', auth_1.optionalAuth, async (req, res) => {
                 isFavorited: false,
             });
         }
-        const isFavorited = await favoriteService_1.FavoriteService.isFavorited(userId, restaurantId);
+        const isFavorited = await serviceFactory_1.FavoriteService.isFavorited(userId, restaurantId);
         res.json({
             isFavorited,
         });
@@ -93,7 +93,7 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
             });
         }
         // Create favorite
-        const favorite = await favoriteService_1.FavoriteService.createFavorite({
+        const favorite = await serviceFactory_1.FavoriteService.createFavorite({
             userId,
             restaurantId,
             restaurantName,
@@ -137,7 +137,7 @@ router.delete('/:restaurantId', auth_1.authenticateToken, async (req, res) => {
             });
         }
         // Remove favorite
-        const removed = await favoriteService_1.FavoriteService.removeFavorite(userId, restaurantId);
+        const removed = await serviceFactory_1.FavoriteService.removeFavorite(userId, restaurantId);
         if (!removed) {
             return res.status(404).json({
                 error: 'Favorite not found'
@@ -179,10 +179,10 @@ router.post('/toggle', auth_1.authenticateToken, async (req, res) => {
             });
         }
         // Check if already favorited
-        const isFavorited = await favoriteService_1.FavoriteService.isFavorited(userId, restaurantId);
+        const isFavorited = await serviceFactory_1.FavoriteService.isFavorited(userId, restaurantId);
         if (isFavorited) {
             // Remove from favorites
-            await favoriteService_1.FavoriteService.removeFavorite(userId, restaurantId);
+            await serviceFactory_1.FavoriteService.removeFavorite(userId, restaurantId);
             res.json({
                 message: 'Restaurant removed from favorites',
                 isFavorited: false,
@@ -190,7 +190,7 @@ router.post('/toggle', auth_1.authenticateToken, async (req, res) => {
         }
         else {
             // Add to favorites
-            const favorite = await favoriteService_1.FavoriteService.createFavorite({
+            const favorite = await serviceFactory_1.FavoriteService.createFavorite({
                 userId,
                 restaurantId,
                 restaurantName,

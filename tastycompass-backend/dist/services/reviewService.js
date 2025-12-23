@@ -5,14 +5,22 @@ const userService_1 = require("./userService");
 class ReviewService {
     constructor() {
         this.reviews = new Map();
-        // Add some sample reviews for testing
-        this.addSampleReviews();
+        // Add some sample reviews for testing (async)
+        this.addSampleReviews().catch(error => {
+            console.log('Failed to add sample reviews:', error.message);
+        });
     }
-    addSampleReviews() {
+    async addSampleReviews() {
+        // Get the current demo user ID from UserService
+        const demoUser = await userService_1.UserService.findUserByEmail('demo@tastycompass.com');
+        if (!demoUser) {
+            console.log('Demo user not found, skipping sample reviews');
+            return;
+        }
         const sampleReviews = [
             {
                 id: 'review_1',
-                userId: 'demo_user_id',
+                userId: demoUser.id,
                 restaurantId: 'ChIJK08gKtR_j4ARKyo5suJ6o2I',
                 rating: 5,
                 title: 'Amazing food!',
@@ -26,7 +34,7 @@ class ReviewService {
             },
             {
                 id: 'review_2',
-                userId: 'demo_user_id',
+                userId: demoUser.id,
                 restaurantId: 'ChIJNy8VmmGAhYARQF84_9twEc4',
                 rating: 4,
                 title: 'Good experience',
@@ -40,7 +48,7 @@ class ReviewService {
             },
             {
                 id: 'review_3',
-                userId: 'demo_user_id',
+                userId: demoUser.id,
                 restaurantId: 'ChIJE5T3YoqAhYARtxUohSbFVDc',
                 rating: 3,
                 title: 'Average place',

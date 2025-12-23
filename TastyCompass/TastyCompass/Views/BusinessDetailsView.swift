@@ -166,6 +166,7 @@ struct BusinessDetailsView: View {
                     restaurantId: place.id,
                     restaurantName: place.name
                 )
+                .environmentObject(apiService)
                 .toolbar(content: {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") {
@@ -321,7 +322,6 @@ struct BusinessDetailsView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
-                    .background(Color.blue.opacity(0.1))
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -548,6 +548,49 @@ struct BusinessDetailsView: View {
     
     private var reviewsView: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Google Reviews card
+            if let rating = place.rating, let stats = place.stats, let totalRatings = stats.totalRatings, totalRatings > 0 {
+                Button(action: {
+                    showingAllGoogleReviews = true
+                }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "map")
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                                Text("Google Reviews")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                            }
+                            
+                            HStack(spacing: 8) {
+                                StarRatingView(
+                                    rating: rating,
+                                    starSize: 16,
+                                    showRating: true
+                                )
+                                
+                                Text("(\(totalRatings) reviews)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
             // Header with review stats
             if let stats = reviewStats, stats.totalRatings > 0 {
                 ReviewStatsView(

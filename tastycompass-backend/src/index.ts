@@ -3,12 +3,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import { testConnection, initializeDatabase } from './database/connection';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -54,12 +56,28 @@ app.use('/api/favorites', favoriteRoutes);
 // Review routes
 app.use('/api/reviews', reviewRoutes);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 API available at: http://localhost:${PORT}`);
-  console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`💾 Storage: In-memory (data will reset on restart)`);
-});
+// Initialize database and start server
+const startServer = async () => {
+  if (USE_POSTGRES) {
+    try {
+      await testConnection();
+      await initializeDatabase();
+      console.log('💾 Storage: PostgreSQL (persistent)');
+    } catch (error) {
+      console.error('Failed to initialize database, falling back to in-memory storage');
+      console.log('💾 Storage: In-memory (data will reset on restart)');
+    }
+  } else {
+    console.log('💾 Storage: In-memory (data will reset on restart)');
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📱 API available at: http://localhost:${PORT}`);
+    console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
+  });
+};
+
+startServer().catch(console.error);
 
 export default app;

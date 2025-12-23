@@ -82,4 +82,54 @@ router.get('/:id', async (req, res) => {
         });
     }
 });
+// GET /api/restaurants/:id/google-reviews
+router.get('/:id/google-reviews', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { page = 1, limit = 10 } = req.query;
+        if (!id) {
+            return res.status(400).json({
+                error: 'Restaurant ID is required'
+            });
+        }
+        // Get restaurant details with Google reviews
+        const restaurant = await googlePlacesService.getRestaurantDetails(id);
+        const allReviews = restaurant.reviews || [];
+        const pageNum = parseInt(page) || 1;
+        const limitNum = Math.min(parseInt(limit) || 10, 20); // Max 20 per page
+        // Calculate pagination
+        const startIndex = (pageNum - 1) * limitNum;
+        const endIndex = startIndex + limitNum;
+        // Get paginated reviews
+        const paginatedReviews = allReviews
+            .slice(startIndex, endIndex)
+            .map(review => ({
+            ...review,
+            text: review.text.length > 200 ?
+                review.text.substring(0, 200) + '...' :
+                review.text
+        }));
+        const totalPages = Math.ceil(allReviews.length / limitNum);
+        res.json({
+            reviews: paginatedReviews,
+            totalReviews: allReviews.length,
+            averageRating: restaurant.rating,
+            totalRatings: restaurant.totalRatings || 0,
+            pagination: {
+                currentPage: pageNum,
+                totalPages: totalPages,
+                hasNextPage: pageNum < totalPages,
+                hasPrevPage: pageNum > 1,
+                limit: limitNum
+            }
+        });
+    }
+    catch (error) {
+        console.error('Google reviews error:', error);
+        res.status(500).json({
+            error: 'Failed to get Google reviews',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
 exports.default = router;

@@ -39,3 +39,9 @@ export interface ReviewsResponse {
   averageRating: number;
   totalRatings: number;
 }
+
+export interface ReviewStats {
+  averageRating: number;
+  totalRatings: number;
+  ratingDistribution: Record<number, number>;
+}

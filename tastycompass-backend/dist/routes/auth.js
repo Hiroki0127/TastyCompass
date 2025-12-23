@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const authService_1 = require("../services/authService");
-const userService_1 = require("../services/userService");
+const serviceFactory_1 = require("../services/serviceFactory");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // Register new user
@@ -31,7 +31,7 @@ router.post('/register', async (req, res) => {
             });
         }
         // Check if user already exists
-        const existingUser = await userService_1.UserService.findUserByEmail(email);
+        const existingUser = await serviceFactory_1.UserService.findUserByEmail(email);
         if (existingUser) {
             return res.status(409).json({
                 error: 'User already exists',
@@ -41,7 +41,7 @@ router.post('/register', async (req, res) => {
         // Hash password
         const hashedPassword = await authService_1.AuthService.hashPassword(password);
         // Create user
-        const user = await userService_1.UserService.createUser({
+        const user = await serviceFactory_1.UserService.createUser({
             email,
             password: hashedPassword,
             firstName,
@@ -76,7 +76,7 @@ router.post('/login', async (req, res) => {
             });
         }
         // Find user
-        const user = await userService_1.UserService.findUserByEmail(email);
+        const user = await serviceFactory_1.UserService.findUserByEmail(email);
         if (!user) {
             return res.status(401).json({
                 error: 'Invalid credentials',
@@ -118,7 +118,7 @@ router.get('/me', auth_1.authenticateToken, async (req, res) => {
                 error: 'Not authenticated'
             });
         }
-        const user = await userService_1.UserService.findUserById(userId);
+        const user = await serviceFactory_1.UserService.findUserById(userId);
         if (!user) {
             return res.status(404).json({
                 error: 'User not found'
@@ -153,7 +153,7 @@ router.put('/me', auth_1.authenticateToken, async (req, res) => {
             updates.lastName = lastName;
         if (email) {
             // Check if email is already taken by another user
-            const existingUser = await userService_1.UserService.findUserByEmail(email);
+            const existingUser = await serviceFactory_1.UserService.findUserByEmail(email);
             if (existingUser && existingUser.id !== userId) {
                 return res.status(409).json({
                     error: 'Email already taken',
@@ -162,7 +162,7 @@ router.put('/me', auth_1.authenticateToken, async (req, res) => {
             }
             updates.email = email;
         }
-        const updatedUser = await userService_1.UserService.updateUser(userId, updates);
+        const updatedUser = await serviceFactory_1.UserService.updateUser(userId, updates);
         if (!updatedUser) {
             return res.status(404).json({
                 error: 'User not found'
