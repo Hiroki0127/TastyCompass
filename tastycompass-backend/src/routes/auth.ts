@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { AuthService, LoginCredentials, RegisterData } from '../services/authService';
-import { UserService } from '../services/userService';
+import { UserService } from '../services/serviceFactory';
 import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
@@ -43,13 +43,10 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    // Hash password
-    const hashedPassword = await AuthService.hashPassword(password);
-
-    // Create user
+    // Create user (UserService will hash the password)
     const user = await UserService.createUser({
       email,
-      password: hashedPassword,
+      password,
       firstName,
       lastName,
     });

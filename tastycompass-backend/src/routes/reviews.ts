@@ -1,5 +1,5 @@
 import express from 'express';
-import { ReviewService } from '../services/reviewService';
+import { ReviewService } from '../services/serviceFactory';
 import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
@@ -9,15 +9,24 @@ const reviewService = new ReviewService();
 router.get('/restaurant/:restaurantId', async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    const { limit = '20', offset = '0' } = req.query;
+    const { limit = '10', offset = '0' } = req.query;
 
-    const reviewsResponse = reviewService.getReviewsForRestaurant(
+    const reviewsResponse = await reviewService.getReviewsForRestaurant(
       restaurantId,
       parseInt(limit as string),
       parseInt(offset as string)
     );
 
-    res.json(reviewsResponse);
+    // Truncate content to prevent large responses
+    const truncatedReviews = reviewsResponse.reviews.map(review => ({
+      ...review,
+      content: review.content.length > 200 ? review.content.substring(0, 200) + '...' : review.content
+    }));
+
+    res.json({
+      ...reviewsResponse,
+      reviews: truncatedReviews
+    });
   } catch (error) {
     console.error('Error getting reviews:', error);
     res.status(500).json({ error: 'Failed to get reviews' });
@@ -49,13 +58,19 @@ router.get('/restaurant/:restaurantId/user', authenticateToken, async (req, res)
     const { restaurantId } = req.params;
     const userId = (req as any).user.id;
 
-    const review = reviewService.getUserReview(userId, restaurantId);
+    const review = await reviewService.getUserReview(userId, restaurantId);
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
     }
 
-    res.json({ review });
+    // Truncate content to prevent large response
+    const truncatedReview = {
+      ...review,
+      content: review.content.length > 500 ? review.content.substring(0, 500) + '...' : review.content
+    };
+
+    res.json({ review: truncatedReview });
   } catch (error) {
     console.error('Error getting user review:', error);
     res.status(500).json({ error: 'Failed to get user review' });
@@ -180,9 +195,14 @@ router.get('/restaurant/:restaurantId/stats', async (req, res) => {
   try {
     const { restaurantId } = req.params;
     
-    const stats = reviewService.getReviewStats(restaurantId);
+    const stats = await reviewService.getReviewStats(restaurantId);
     
-    res.json(stats);
+    // Return minimal stats object
+    res.json({
+      averageRating: stats.averageRating,
+      totalRatings: stats.totalRatings,
+      ratingDistribution: stats.ratingDistribution
+    });
   } catch (error) {
     console.error('Error getting review stats:', error);
     res.status(500).json({ error: 'Failed to get review statistics' });

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { FavoriteService } from '../services/favoriteService';
+import { FavoriteService } from '../services/serviceFactory';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 
 const router = Router();
