@@ -1,25 +1,25 @@
-# TastyCompass 🍽️
+# TastyCompass 
 
 A modern iOS restaurant discovery app built with SwiftUI and Node.js backend, featuring location-based restaurant search, user reviews, favorites, and Google Places integration.
 
-## ✨ Features
+## Features
 
 ### Core Functionality
-- **🔍 Location-Based Search**: Find restaurants near you using GPS coordinates
-- **⭐ User Reviews & Ratings**: Write, read, and rate restaurant experiences
-- **❤️ Favorites System**: Save and manage your favorite restaurants
-- **🗺️ Interactive Maps**: View restaurant locations with directions
-- **📱 Modern iOS UI**: Built with SwiftUI for a native iOS experience
+- ** Location-Based Search**: Find restaurants near you using GPS coordinates
+- ** User Reviews & Ratings**: Write, read, and rate restaurant experiences
+- ** Favorites System**: Save and manage your favorite restaurants
+- ** Interactive Maps**: View restaurant locations with directions
+- ** Modern iOS UI**: Built with SwiftUI for a native iOS experience
 
 ### Advanced Features
-- **🔐 User Authentication**: Secure login/signup with JWT tokens
-- **📊 Google Reviews Integration**: View real Google Places reviews with pagination
-- **🎯 Smart Filtering**: Filter by cuisine, price range, rating, and distance
-- **💾 Offline Support**: Cached images and data for better performance
-- **🔄 Pull-to-Refresh**: Easy content updates
-- **📤 Share Functionality**: Share restaurant details with friends
+- ** User Authentication**: Secure login/signup with JWT tokens
+- ** Google Reviews Integration**: View real Google Places reviews with pagination
+- ** Smart Filtering**: Filter by cuisine, price range, rating, and distance
+- ** Offline Support**: Cached images and data for better performance
+- ** Pull-to-Refresh**: Easy content updates
+- ** Share Functionality**: Share restaurant details with friends
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 ### Frontend (iOS)
 - **Swift** - Primary programming language
@@ -48,11 +48,11 @@ A modern iOS restaurant discovery app built with SwiftUI and Node.js backend, fe
 - **ts-node** - TypeScript execution
 - **Git** - Version control
 
-## 📱 Screenshots
+##  Screenshots
 
 *Coming soon - app screenshots will be added here*
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - **iOS Development**: Xcode 15+, iOS 16+
@@ -122,7 +122,7 @@ The backend will be available at `http://localhost:3000`
 - `PUT /api/reviews/:id` - Update review
 - `DELETE /api/reviews/:id` - Delete review
 
-## 🏗 Architecture
+##  Architecture
 
 ### iOS App Structure
 ```
@@ -148,7 +148,7 @@ tastycompass-backend/
 └── package.json     # Dependencies and scripts
 ```
 
-## 🔧 Development
+##  Development
 
 ### Running Tests
 ```bash
@@ -170,7 +170,7 @@ npm run build
 # Archive in Xcode: Product → Archive
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -178,24 +178,24 @@ npm run build
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Google Places API for restaurant data
 - SwiftUI community for UI components
 - Node.js ecosystem for backend tools
 
-## 📞 Support
+## Support
 
 If you have any questions or need help, please:
 - Open an issue on GitHub
 - Check the documentation
-- Contact the development team
 
-## 🔮 Roadmap
+
+## Roadmap
 
 ### Upcoming Features
 - [ ] Push notifications
@@ -215,6 +215,3 @@ If you have any questions or need help, please:
 - [ ] Performance optimization
 - [ ] Accessibility improvements
 
----
-
-**TastyCompass** - Discover amazing restaurants near you! 🍽️✨
