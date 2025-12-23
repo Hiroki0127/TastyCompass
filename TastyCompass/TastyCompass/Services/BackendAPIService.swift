@@ -6,8 +6,13 @@ import CoreLocation
 class BackendAPIService: ObservableObject {
     static let shared = BackendAPIService()
     
-    private let baseURL = "http://localhost:3000/api"
+    private let baseURL: String
     private let session = URLSession.shared
+    
+    init() {
+        self.baseURL = ConfigurationManager.shared.backendAPIURL
+        print("🌐 Backend API URL: \(self.baseURL)")
+    }
     
     // Auth token for authenticated requests
     @Published var authToken: String?

@@ -60,6 +60,13 @@ class ConfigurationManager {
         return getStringValue(for: "GooglePlacesPhotoEndpoint") ?? "/photo"
     }
     
+    // MARK: - Backend API Configuration
+    
+    /// Backend API Base URL
+    var backendAPIURL: String {
+        return getStringValue(for: "BackendAPIURL") ?? "http://localhost:3000/api"
+    }
+    
     // MARK: - Helper Methods
     
     /// Constructs full URL for Google Places API endpoints

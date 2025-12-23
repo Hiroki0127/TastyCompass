@@ -12,6 +12,8 @@
 	<string>/details/json</string>
 	<key>GooglePlacesPhotoEndpoint</key>
 	<string>/photo</string>
+	<key>BackendAPIURL</key>
+	<string>http://localhost:3000/api</string>
 </dict>
 </plist>
 
