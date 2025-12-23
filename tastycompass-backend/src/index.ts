@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { testConnection, initializeDatabase } from './database/connection';
+import { UserService } from './services/serviceFactory';
+import { AuthService } from './services/authService';
 
 // Load environment variables
 dotenv.config();
@@ -56,6 +58,35 @@ app.use('/api/favorites', favoriteRoutes);
 // Review routes
 app.use('/api/reviews', reviewRoutes);
 
+// Initialize demo account for testing
+const initializeDemoAccount = async (): Promise<void> => {
+  try {
+    const demoEmail = 'demo@tastycompass.com';
+    const demoPassword = 'demo123';
+    
+    // Check if demo account already exists
+    const existingUser = await UserService.findUserByEmail(demoEmail);
+    if (existingUser) {
+      console.log('✅ Demo account already exists');
+      return;
+    }
+    
+    // Create demo account
+    const hashedPassword = await AuthService.hashPassword(demoPassword);
+    await UserService.createUser({
+      email: demoEmail,
+      password: hashedPassword,
+      firstName: 'Demo',
+      lastName: 'User'
+    });
+    
+    console.log('✅ Demo account created (email: demo@tastycompass.com, password: demo123)');
+  } catch (error) {
+    console.error('⚠️ Failed to create demo account:', error);
+    // Don't throw - demo account is optional
+  }
+};
+
 // Initialize database and start server
 const startServer = async () => {
   if (USE_POSTGRES) {
@@ -69,6 +100,8 @@ const startServer = async () => {
     }
   } else {
     console.log('💾 Storage: In-memory (data will reset on restart)');
+    // Initialize demo account for in-memory storage
+    await initializeDemoAccount();
   }
 
   app.listen(PORT, () => {

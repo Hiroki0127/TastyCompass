@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import { UserService } from '../services/serviceFactory';
+import { AuthService } from '../services/authService';
 
 dotenv.config();
 
@@ -11,6 +13,35 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || 'password',
   port: parseInt(process.env.DB_PORT || '5432'),
 });
+
+// Initialize demo account for testing
+const initializeDemoAccount = async (): Promise<void> => {
+  try {
+    const demoEmail = 'demo@tastycompass.com';
+    const demoPassword = 'demo123';
+    
+    // Check if demo account already exists
+    const existingUser = await UserService.findUserByEmail(demoEmail);
+    if (existingUser) {
+      console.log('✅ Demo account already exists');
+      return;
+    }
+    
+    // Create demo account
+    const hashedPassword = await AuthService.hashPassword(demoPassword);
+    await UserService.createUser({
+      email: demoEmail,
+      password: hashedPassword,
+      firstName: 'Demo',
+      lastName: 'User'
+    });
+    
+    console.log('✅ Demo account created (email: demo@tastycompass.com, password: demo123)');
+  } catch (error) {
+    console.error('⚠️ Failed to create demo account:', error);
+    // Don't throw - demo account is optional
+  }
+};
 
 // Test database connection
 export const testConnection = async (): Promise<void> => {
@@ -114,6 +145,9 @@ export const initializeDatabase = async (): Promise<void> => {
     `);
 
     console.log('✅ Database schema initialized successfully');
+    
+    // Initialize demo account
+    await initializeDemoAccount();
   } catch (error) {
     console.error('❌ Database initialization failed:', error);
     throw error;
