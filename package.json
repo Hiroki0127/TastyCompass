@@ -1,0 +1,14 @@
+{
+  "name": "tastycompass",
+  "version": "1.0.0",
+  "description": "TastyCompass monorepo",
+  "private": true,
+  "scripts": {
+    "build": "cd tastycompass-backend && npm install && npm run build",
+    "start": "cd tastycompass-backend && npm start"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
