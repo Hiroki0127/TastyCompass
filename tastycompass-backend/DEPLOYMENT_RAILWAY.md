@@ -2,6 +2,25 @@
 
 This guide will help you deploy the TastyCompass backend to Railway with PostgreSQL database.
 
+## ⚠️ CRITICAL FIRST STEP: Set Root Directory
+
+**Before doing anything else**, you MUST configure the Root Directory in Railway, otherwise you'll get "Nixpacks build failed" errors.
+
+### How to Set Root Directory:
+
+1. In Railway Dashboard, click on your web service
+2. Go to **Settings** tab → **Build** section
+3. Find **"Root Directory"** field
+4. **Set it to**: `tastycompass-backend`
+5. Click **"Save"**
+6. Trigger a new deployment
+
+**Why this is required:**
+- Railway scans the repo root by default
+- Your backend code is in the `tastycompass-backend/` subdirectory
+- Railway needs to know where your `package.json` is located
+- Without this, Nixpacks can't create a build plan
+
 ## Prerequisites
 
 1. A [Railway](https://railway.app) account (free tier available)
@@ -27,23 +46,17 @@ This guide will help you deploy the TastyCompass backend to Railway with Postgre
 
 1. In your Railway project, click **"+ New"** → **"GitHub Repo"**
 2. Select your repository again
-3. Railway will detect it's a Node.js project
-4. Click on the service to configure it
+3. Click on the service to configure it
 
 ### Configure Build Settings
 
-**IMPORTANT:** Since the backend code is in a subdirectory, you MUST set the root directory:
+**IMPORTANT: Do this FIRST before anything else!**
 
 1. Go to **Settings** → **Build**
-2. **Set Root Directory**: `tastycompass-backend` ⚠️ **This is critical!**
+2. **Set Root Directory**: `tastycompass-backend` ⚠️ **CRITICAL!**
 3. Railway will automatically detect:
    - Build Command: `npm install && npm run build`
    - Start Command: `npm start`
-
-**If you get "error creating build plan with Nixpacks":**
-- Make sure **Root Directory** is set to `tastycompass-backend` (not empty!)
-- The Root Directory tells Railway where your `package.json` is located
-- Without this, Railway tries to build from the repo root and fails
 
 ### Configure Environment Variables
 
@@ -134,23 +147,28 @@ Railway provides `DATABASE_URL` by default. If you want to use it instead of ind
 
 ## Troubleshooting
 
-### "Error creating build plan with Nixpacks"
+### ❌ "Nixpacks build failed" or "Error creating build plan with Nixpacks"
 
-This error occurs when Railway can't find your `package.json`. **Solution:**
+**This is the most common error. Solution:**
 
 1. Go to your service in Railway Dashboard
 2. Click **Settings** → **Build**
 3. **Set Root Directory to**: `tastycompass-backend`
-4. Save and redeploy
+4. **Save** the settings
+5. Click **"Redeploy"** or trigger a new deployment
 
 **Why this happens:**
 - Railway looks for `package.json` in the repo root by default
 - Your backend code is in the `tastycompass-backend/` subdirectory
 - Setting Root Directory tells Railway where to find your code
+- Without this setting, Railway scans the root and finds no `package.json`, causing Nixpacks to fail
 
-**Alternative:** If Root Directory setting doesn't work, you can:
-- Create a new service and select the `tastycompass-backend` folder directly
-- Or move `package.json` to the repo root (not recommended)
+**What you should see in build logs after fixing:**
+```
+Found package.json in tastycompass-backend/
+Detected Node.js project
+Building...
+```
 
 ### Database Connection Issues
 
@@ -200,4 +218,3 @@ For production, consider upgrading to a paid plan.
 2. Configure backup strategy for database
 3. Set up CI/CD for automatic deployments
 4. Consider adding environment-specific configurations
-
