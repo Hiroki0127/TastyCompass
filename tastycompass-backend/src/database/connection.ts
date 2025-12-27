@@ -5,14 +5,41 @@ import { AuthService } from '../services/authService';
 
 dotenv.config();
 
+// Parse DATABASE_URL if provided (Railway format: postgresql://user:password@host:port/database)
+// Otherwise use individual environment variables
+function getDatabaseConfig() {
+  const databaseUrl = process.env.DATABASE_URL;
+  
+  if (databaseUrl) {
+    // Parse DATABASE_URL (Railway provides this automatically)
+    try {
+      const url = new URL(databaseUrl);
+      return {
+        user: url.username,
+        host: url.hostname,
+        database: url.pathname.slice(1), // Remove leading '/'
+        password: url.password,
+        port: parseInt(url.port || '5432'),
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      };
+    } catch (error) {
+      console.error('❌ Failed to parse DATABASE_URL:', error);
+      // Fall through to individual variables
+    }
+  }
+  
+  // Fall back to individual environment variables
+  return {
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    database: process.env.DB_NAME || 'tastycompass',
+    password: process.env.DB_PASSWORD || 'password',
+    port: parseInt(process.env.DB_PORT || '5432'),
+  };
+}
+
 // Database connection configuration
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'tastycompass',
-  password: process.env.DB_PASSWORD || 'password',
-  port: parseInt(process.env.DB_PORT || '5432'),
-});
+const pool = new Pool(getDatabaseConfig());
 
 // Initialize demo account for testing
 const initializeDemoAccount = async (): Promise<void> => {

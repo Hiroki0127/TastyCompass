@@ -12,7 +12,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
+// Enable PostgreSQL if DATABASE_URL is provided (Railway) or USE_POSTGRES is explicitly set
+const USE_POSTGRES = process.env.USE_POSTGRES === 'true' || !!process.env.DATABASE_URL;
 
 // Middleware
 app.use(helmet()); // Security headers
