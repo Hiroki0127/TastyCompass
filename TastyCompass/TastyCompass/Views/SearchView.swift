@@ -63,8 +63,12 @@ struct SearchView: View {
                 )
             }
             .onAppear {
-                // Just check location status, don't auto-search
-                checkLocationStatus()
+                // Request location permission if not determined
+                if locationManager.authorizationStatus == .notDetermined {
+                    requestLocationPermission()
+                } else {
+                    checkLocationStatus()
+                }
             }
         }
     }
