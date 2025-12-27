@@ -254,8 +254,25 @@ struct ProfileView: View {
     private func loadUserStats() {
         isLoadingStats = true
         
-        // Get favorites count from local manager
-        favoritesCount = favoritesManager.favoritePlaces.count
+        // Get favorites count from backend API (same source as FavoritesView)
+        apiService.getAllFavorites()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isLoadingStats = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to load favorites count: \(error)")
+                        // Fallback to local manager if backend fails
+                        favoritesCount = favoritesManager.favoritePlaces.count
+                    }
+                },
+                receiveValue: { favorites in
+                    favoritesCount = favorites.count
+                    print("✅ Loaded \(favorites.count) favorites for profile stats")
+                    isLoadingStats = false
+                }
+            )
+            .store(in: &cancellables)
         
         // Try to get reviews count from backend
         // For now, we'll fetch a sample to get total count
@@ -264,9 +281,6 @@ struct ProfileView: View {
             // Try to get user's reviews - we'll use a dummy restaurant ID
             // In production, you'd have a /reviews/user endpoint
             reviewsCount = 0 // Will be updated if we can fetch it
-            isLoadingStats = false
-        } else {
-            isLoadingStats = false
         }
     }
 }
