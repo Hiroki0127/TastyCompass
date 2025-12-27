@@ -10,32 +10,60 @@ dotenv.config();
 function getDatabaseConfig() {
   const databaseUrl = process.env.DATABASE_URL;
   
+  console.log('🔍 Checking database configuration...');
+  console.log('DATABASE_URL present:', !!databaseUrl);
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  
   if (databaseUrl) {
     // Parse DATABASE_URL (Railway provides this automatically)
     try {
       const url = new URL(databaseUrl);
-      return {
+      const config = {
         user: url.username,
         host: url.hostname,
         database: url.pathname.slice(1), // Remove leading '/'
+        password: url.password ? '***' : undefined, // Don't log password
+        port: parseInt(url.port || '5432'),
+        // Railway requires SSL connections
+        ssl: { rejectUnauthorized: false }
+      };
+      
+      console.log('✅ Using DATABASE_URL configuration');
+      console.log('Host:', config.host);
+      console.log('Database:', config.database);
+      console.log('Port:', config.port);
+      console.log('SSL enabled:', !!config.ssl);
+      
+      return {
+        user: url.username,
+        host: url.hostname,
+        database: url.pathname.slice(1),
         password: url.password,
         port: parseInt(url.port || '5432'),
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        ssl: { rejectUnauthorized: false }
       };
     } catch (error) {
       console.error('❌ Failed to parse DATABASE_URL:', error);
+      console.error('DATABASE_URL value:', databaseUrl ? `${databaseUrl.substring(0, 20)}...` : 'undefined');
       // Fall through to individual variables
     }
   }
   
   // Fall back to individual environment variables
-  return {
+  const fallbackConfig = {
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
     database: process.env.DB_NAME || 'tastycompass',
     password: process.env.DB_PASSWORD || 'password',
     port: parseInt(process.env.DB_PORT || '5432'),
   };
+  
+  console.log('⚠️ Using fallback configuration (individual env vars)');
+  console.log('Host:', fallbackConfig.host);
+  console.log('Database:', fallbackConfig.database);
+  console.log('Port:', fallbackConfig.port);
+  
+  return fallbackConfig;
 }
 
 // Database connection configuration

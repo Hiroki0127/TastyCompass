@@ -91,13 +91,23 @@ const initializeDemoAccount = async (): Promise<void> => {
 // Initialize database and start server
 const startServer = async () => {
   if (USE_POSTGRES) {
+    console.log('🔍 Attempting to connect to PostgreSQL...');
+    console.log('DATABASE_URL set:', !!process.env.DATABASE_URL);
+    console.log('USE_POSTGRES:', process.env.USE_POSTGRES);
+    
     try {
       await testConnection();
       await initializeDatabase();
       console.log('💾 Storage: PostgreSQL (persistent)');
     } catch (error) {
-      console.error('Failed to initialize database, falling back to in-memory storage');
+      console.error('❌ Failed to initialize database:', error);
+      console.error('Falling back to in-memory storage');
       console.log('💾 Storage: In-memory (data will reset on restart)');
+      console.log('');
+      console.log('💡 To use PostgreSQL on Railway:');
+      console.log('   1. Add a PostgreSQL service in Railway');
+      console.log('   2. Link it to your backend service');
+      console.log('   3. Railway will automatically provide DATABASE_URL');
     }
   } else {
     console.log('💾 Storage: In-memory (data will reset on restart)');
