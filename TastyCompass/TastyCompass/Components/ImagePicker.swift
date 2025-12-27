@@ -1,9 +1,10 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 
 struct ImagePicker: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
     
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var configuration = PHPickerConfiguration()
@@ -32,15 +33,21 @@ struct ImagePicker: UIViewControllerRepresentable {
             picker.dismiss(animated: true)
             
             guard let provider = results.first?.itemProvider else {
+                parent.dismiss()
                 return
             }
             
             if provider.canLoadObject(ofClass: UIImage.self) {
-                provider.loadObject(ofClass: UIImage.self) { image, _ in
+                provider.loadObject(ofClass: UIImage.self) { [weak self] image, error in
                     DispatchQueue.main.async {
-                        self.parent.selectedImage = image as? UIImage
+                        if let image = image as? UIImage {
+                            self?.parent.selectedImage = image
+                        }
+                        self?.parent.dismiss()
                     }
                 }
+            } else {
+                parent.dismiss()
             }
         }
     }
