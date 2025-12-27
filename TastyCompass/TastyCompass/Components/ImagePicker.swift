@@ -30,10 +30,14 @@ struct ImagePicker: UIViewControllerRepresentable {
         }
         
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-            picker.dismiss(animated: true)
+            picker.dismiss(animated: true) {
+                // Dismiss the sheet after the picker is dismissed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.parent.dismiss()
+                }
+            }
             
             guard let provider = results.first?.itemProvider else {
-                parent.dismiss()
                 return
             }
             
@@ -43,11 +47,8 @@ struct ImagePicker: UIViewControllerRepresentable {
                         if let image = image as? UIImage {
                             self?.parent.selectedImage = image
                         }
-                        self?.parent.dismiss()
                     }
                 }
-            } else {
-                parent.dismiss()
             }
         }
     }
