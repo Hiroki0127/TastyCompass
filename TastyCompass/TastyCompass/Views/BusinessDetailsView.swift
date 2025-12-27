@@ -8,6 +8,7 @@ struct BusinessDetailsView: View {
     let place: Place
     @StateObject private var apiService = BackendAPIService.shared
     @EnvironmentObject private var toastManager: ToastManager
+    @Environment(\.dismiss) private var dismiss
     
     @State private var showingShareSheet = false
     @State private var showingMap = false
@@ -44,17 +45,25 @@ struct BusinessDetailsView: View {
     init(place: Place, parentFavoriteState: Binding<Bool?>? = nil) {
         self.place = place
         self._parentFavoriteState = parentFavoriteState ?? .constant(nil)
+        
+        // Validate coordinates - if invalid (0,0), use Toronto as fallback
+        let lat = place.geocodes.main.latitude
+        let lng = place.geocodes.main.longitude
+        let isValid = lat != 0 && lng != 0 && abs(lat) <= 90 && abs(lng) <= 180
+        
+        let coordinate = isValid 
+            ? CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            : CLLocationCoordinate2D(latitude: 43.6532, longitude: -79.3832) // Toronto fallback
+        
         self._region = State(initialValue: MKCoordinateRegion(
-            center: CLLocationCoordinate2D(
-                latitude: place.geocodes.main.latitude,
-                longitude: place.geocodes.main.longitude
-            ),
+            center: coordinate,
             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
         ))
     }
     
     var body: some View {
-        ScrollView(.vertical, showsIndicators: true) {
+        NavigationView {
+            ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
                 // Hero image
                 heroImageView
@@ -89,17 +98,24 @@ struct BusinessDetailsView: View {
             }
         }
         .navigationTitle(place.name)
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(content: {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack {
-                    // Share button
-                    Button(action: {
-                        showingShareSheet = true
-                    }) {
-                        Image(systemName: "square.and.arrow.up")
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    dismiss()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
                     }
-                    
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    showingShareSheet = true
+                }) {
+                    Image(systemName: "square.and.arrow.up")
                 }
             }
         })
@@ -764,6 +780,19 @@ struct BusinessDetailsView: View {
                                 print("  \(index + 1): \(photo.photoURL.prefix(80))...")
                             }
                         }
+                        
+                        // Update map region with detailed place coordinates if they're valid
+                        let lat = detailedPlace.geocodes.main.latitude
+                        let lng = detailedPlace.geocodes.main.longitude
+                        let isValid = lat != 0 && lng != 0 && abs(lat) <= 90 && abs(lng) <= 180
+                        
+                        if isValid {
+                            region = MKCoordinateRegion(
+                                center: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                            )
+                            print("📍 Updated map region to: \(lat), \(lng)")
+                        }
                     }
                 )
                 .store(in: &cancellables)
@@ -963,25 +992,48 @@ struct StatusBadge: View {
 struct MapView: View {
     @Binding var region: MKCoordinateRegion
     let place: Place
+    @Environment(\.dismiss) private var dismiss
+    
+    // Validate coordinates
+    private var validCoordinate: CLLocationCoordinate2D {
+        let lat = place.geocodes.main.latitude
+        let lng = place.geocodes.main.longitude
+        let isValid = lat != 0 && lng != 0 && abs(lat) <= 90 && abs(lng) <= 180
+        
+        if isValid {
+            return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+        } else {
+            // Fallback to Toronto if invalid
+            return CLLocationCoordinate2D(latitude: 43.6532, longitude: -79.3832)
+        }
+    }
     
     var body: some View {
-        Map(coordinateRegion: $region, annotationItems: [place]) { place in
-            MapAnnotation(coordinate: CLLocationCoordinate2D(
-                latitude: place.geocodes.main.latitude,
-                longitude: place.geocodes.main.longitude
-            )) {
-                VStack {
-                    Image(systemName: "mappin.circle.fill")
-                        .font(.title)
-                        .foregroundColor(.red)
-                    
-                    Text(place.name)
-                        .font(.caption)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.white)
-                        .cornerRadius(4)
-                        .shadow(radius: 2)
+        NavigationView {
+            Map(coordinateRegion: $region, annotationItems: [place]) { place in
+                MapAnnotation(coordinate: validCoordinate) {
+                    VStack {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.title)
+                            .foregroundColor(.red)
+                        
+                        Text(place.name)
+                            .font(.caption)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.white)
+                            .cornerRadius(4)
+                            .shadow(radius: 2)
+                    }
+                }
+            }
+            .navigationTitle(place.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
                 }
             }
         }
