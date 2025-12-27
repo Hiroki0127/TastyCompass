@@ -54,6 +54,10 @@ struct AuthView: View {
                         
                         SecureField("Enter your password", text: $password)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textContentType(.none)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
                     }
                     
                     // Confirm password field (sign up only)
@@ -65,6 +69,10 @@ struct AuthView: View {
                             
                             SecureField("Confirm your password", text: $confirmPassword)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textContentType(.none)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .disableAutocorrection(true)
                         }
                     }
                 }
