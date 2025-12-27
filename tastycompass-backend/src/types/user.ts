@@ -4,6 +4,7 @@ export interface User {
   password: string;
   firstName: string;
   lastName: string;
+  avatarUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,4 +20,5 @@ export interface UpdateUserData {
   firstName?: string;
   lastName?: string;
   email?: string;
+  avatarUrl?: string;
 }

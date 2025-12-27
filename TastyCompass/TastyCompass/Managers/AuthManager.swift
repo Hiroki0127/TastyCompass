@@ -56,6 +56,11 @@ class AuthManager: ObservableObject {
         print("✅ User signed out")
     }
     
+    func updateCurrentUser(_ user: User) {
+        currentUser = user
+        print("✅ Current user updated")
+    }
+    
     // MARK: - Token Management
     
     private func handleAuthSuccess(token: String, user: User) {
@@ -103,6 +108,7 @@ struct User: Codable, Identifiable {
     let email: String
     let firstName: String
     let lastName: String
+    let avatarUrl: String?
     let createdAt: String
     let updatedAt: String
     
@@ -111,6 +117,7 @@ struct User: Codable, Identifiable {
         case email
         case firstName
         case lastName
+        case avatarUrl
         case createdAt
         case updatedAt
     }

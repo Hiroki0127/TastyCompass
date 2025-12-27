@@ -54,6 +54,9 @@ struct ProfileView: View {
     @State private var reviewsCount: Int = 0
     @State private var isLoadingStats = false
     @State private var cancellables = Set<AnyCancellable>()
+    @State private var showingImagePicker = false
+    @State private var selectedImage: UIImage?
+    @State private var isUploadingImage = false
     
     var body: some View {
         NavigationView {
@@ -83,6 +86,14 @@ struct ProfileView: View {
             .onAppear {
                 loadUserStats()
             }
+            .sheet(isPresented: $showingImagePicker) {
+                ImagePicker(selectedImage: $selectedImage)
+            }
+            .onChange(of: selectedImage) { newImage in
+                if let image = newImage {
+                    uploadProfileImage(image)
+                }
+            }
             .alert("Sign Out", isPresented: $showingSignOutAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Sign Out", role: .destructive) {
@@ -99,22 +110,63 @@ struct ProfileView: View {
     private var profileHeaderView: some View {
         VStack(spacing: 16) {
             // Profile image
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.orange.opacity(0.8), .orange],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            Button(action: {
+                showingImagePicker = true
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.orange.opacity(0.8), .orange],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
+                        .frame(width: 100, height: 100)
+                    
+                    if let user = authManager.currentUser, let avatarUrl = user.avatarUrl, let url = URL(string: avatarUrl) {
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 50))
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: 100, height: 100)
+                        .clipShape(Circle())
+                    } else if let selectedImage = selectedImage {
+                        Image(uiImage: selectedImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
+                    } else {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.white)
+                    }
+                    
+                    // Edit overlay
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Image(systemName: "camera.fill")
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Color.orange)
+                                .clipShape(Circle())
+                                .offset(x: -5, y: -5)
+                        }
+                    }
                     .frame(width: 100, height: 100)
-                
-                Image(systemName: "person.fill")
-                    .font(.system(size: 50))
-                    .foregroundColor(.white)
+                }
             }
             .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+            .disabled(isUploadingImage)
             
             // User name
             if let user = authManager.currentUser {
@@ -282,6 +334,42 @@ struct ProfileView: View {
             // In production, you'd have a /reviews/user endpoint
             reviewsCount = 0 // Will be updated if we can fetch it
         }
+    }
+    
+    private func uploadProfileImage(_ image: UIImage) {
+        // For now, we'll convert the image to base64 and send it as a URL
+        // In production, you'd upload to a cloud storage service (S3, Cloudinary, etc.)
+        // and get back a URL
+        
+        isUploadingImage = true
+        
+        // Convert image to base64 data URL (temporary solution)
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+            isUploadingImage = false
+            return
+        }
+        
+        let base64String = imageData.base64EncodedString()
+        let dataURL = "data:image/jpeg;base64,\(base64String)"
+        
+        // Update profile with the data URL
+        apiService.updateProfile(avatarUrl: dataURL)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isUploadingImage = false
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to upload profile image: \(error)")
+                    }
+                },
+                receiveValue: { updatedUser in
+                    // Update the current user in auth manager
+                    authManager.updateCurrentUser(updatedUser)
+                    print("✅ Profile image updated successfully")
+                    isUploadingImage = false
+                }
+            )
+            .store(in: &cancellables)
     }
 }
 

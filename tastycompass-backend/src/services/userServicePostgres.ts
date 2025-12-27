@@ -36,6 +36,7 @@ export class UserService {
         password: passwordHash, // Return hashed password for AuthService
         firstName: firstName,
         lastName: lastName,
+        avatarUrl: user.avatar_url || undefined,
         createdAt: user.created_at,
         updatedAt: user.updated_at,
       };
@@ -66,6 +67,7 @@ export class UserService {
         password: user.password,
         firstName: firstName,
         lastName: lastName,
+        avatarUrl: user.avatar_url || undefined,
         createdAt: user.created_at,
         updatedAt: user.updated_at,
       };
@@ -96,6 +98,7 @@ export class UserService {
         password: user.password,
         firstName: firstName,
         lastName: lastName,
+        avatarUrl: user.avatar_url || undefined,
         createdAt: user.created_at,
         updatedAt: user.updated_at,
       };
@@ -129,6 +132,11 @@ export class UserService {
         updateFields.push(`email = $${paramCount++}`);
         values.push(updates.email);
       }
+      
+      if (updates.avatarUrl !== undefined) {
+        updateFields.push(`avatar_url = $${paramCount++}`);
+        values.push(updates.avatarUrl);
+      }
 
       if (updateFields.length === 0) {
         // No updates provided, return current user
@@ -142,7 +150,7 @@ export class UserService {
         UPDATE users 
         SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
         WHERE id = $${paramCount}
-        RETURNING id, email, name, created_at, updated_at
+        RETURNING id, email, name, avatar_url, created_at, updated_at
       `;
       
       const result = await client.query(query, values);
@@ -152,12 +160,16 @@ export class UserService {
       }
       
       const user = result.rows[0];
+      const [firstName, ...lastNameParts] = user.name.split(' ');
+      const lastName = lastNameParts.join(' ');
+      
       return {
         id: user.id,
         email: user.email,
         password: '', // Don't return password hash
-        firstName: user.first_name,
-        lastName: user.last_name,
+        firstName: firstName,
+        lastName: lastName,
+        avatarUrl: user.avatar_url || undefined,
         createdAt: user.created_at,
         updatedAt: user.updated_at,
       };

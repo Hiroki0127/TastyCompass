@@ -162,11 +162,12 @@ router.put('/me', authenticateToken, async (req: Request, res: Response) => {
       });
     }
 
-    const { firstName, lastName, email } = req.body;
+    const { firstName, lastName, email, avatarUrl } = req.body;
     const updates: any = {};
 
     if (firstName) updates.firstName = firstName;
     if (lastName) updates.lastName = lastName;
+    if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
     if (email) {
       // Check if email is already taken by another user
       const existingUser = await UserService.findUserByEmail(email);

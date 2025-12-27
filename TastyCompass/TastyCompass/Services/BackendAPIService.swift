@@ -281,6 +281,7 @@ class BackendAPIService: ObservableObject {
                         email: userDict["email"] as? String ?? "",
                         firstName: userDict["firstName"] as? String ?? "",
                         lastName: userDict["lastName"] as? String ?? "",
+                        avatarUrl: userDict["avatarUrl"] as? String,
                         createdAt: userDict["createdAt"] as? String ?? "",
                         updatedAt: userDict["updatedAt"] as? String ?? ""
                     )
@@ -343,6 +344,7 @@ class BackendAPIService: ObservableObject {
                         email: userDict["email"] as? String ?? "",
                         firstName: userDict["firstName"] as? String ?? "",
                         lastName: userDict["lastName"] as? String ?? "",
+                        avatarUrl: userDict["avatarUrl"] as? String,
                         createdAt: userDict["createdAt"] as? String ?? "",
                         updatedAt: userDict["updatedAt"] as? String ?? ""
                     )
@@ -354,6 +356,42 @@ class BackendAPIService: ObservableObject {
                     throw BackendAPIError.decodingError
                 }
             }
+            .eraseToAnyPublisher()
+    }
+    
+    // MARK: - User Profile
+    
+    struct UpdateProfileResponse: Codable {
+        let message: String
+        let user: User
+    }
+    
+    func updateProfile(avatarUrl: String?) -> AnyPublisher<User, Error> {
+        guard let url = URL(string: "\(baseURL)/auth/me") else {
+            return Fail(error: BackendAPIError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        var requestBody: [String: Any] = [:]
+        if let avatarUrl = avatarUrl {
+            requestBody["avatarUrl"] = avatarUrl
+        }
+        
+        print("🌐 Updating profile with avatar URL")
+        
+        return makeRequest(url: url, method: "PUT", body: requestBody, requiresAuth: true)
+            .decode(type: UpdateProfileResponse.self, decoder: JSONDecoder())
+            .map { $0.user }
+            .handleEvents(
+                receiveOutput: { user in
+                    print("✅ Profile updated successfully")
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to update profile: \(error)")
+                    }
+                }
+            )
             .eraseToAnyPublisher()
     }
     
