@@ -63,12 +63,8 @@ struct SearchView: View {
                 )
             }
             .onAppear {
-                // Request location permission if not determined
-                if locationManager.authorizationStatus == .notDetermined {
-                    requestLocationPermission()
-                } else {
-                    checkLocationStatus()
-                }
+                // Just check location status, don't auto-search
+                checkLocationStatus()
             }
         }
     }
@@ -358,35 +354,37 @@ struct SearchView: View {
             )
             .store(in: &cancellables)
         } else {
-            // No location available - request permission or show error
-            print("⚠️ No location available")
-            isLoading = false
+            // No location available - use Toronto as fallback for testing
+            print("⚠️ No location available, using Toronto as fallback")
+            let torontoLocation = CLLocation(latitude: 43.6532, longitude: -79.3832)
             
-            // Check authorization status
-            switch locationManager.authorizationStatus {
-            case .notDetermined:
-                // Request permission first
+            // Still try to get real location in background
+            if locationManager.authorizationStatus == .notDetermined {
                 requestLocationPermission()
-                errorMessage = "Location permission needed. Please allow location access to find nearby restaurants."
-            case .denied, .restricted:
-                errorMessage = "Location access denied. Please enable location services in Settings to find nearby restaurants."
-            default:
-                // Permission granted but location not available yet - wait a bit
-                errorMessage = "Getting your location... Please wait a moment and try again."
-                // Try to get location
-                locationManager.requestPermission { granted in
-                    if granted {
-                        // Wait for location update
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            if locationManager.currentLocation != nil {
-                                performSearch()
-                            } else {
-                                errorMessage = "Unable to get your location. Please check your location settings."
-                            }
-                        }
-                    }
-                }
             }
+            
+            // Use Toronto location for search
+            apiService.searchRestaurants(
+                with: currentFilter,
+                near: torontoLocation,
+                query: searchText.isEmpty ? nil : searchText
+            )
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    isLoading = false
+                    if case .failure(let error) = completion {
+                        print("❌ Search failed: \(error)")
+                        errorMessage = "Search failed: \(error.localizedDescription)"
+                    }
+                },
+                receiveValue: { places in
+                    print("✅ Found \(places.count) restaurants near Toronto")
+                    restaurants = places
+                    isLoading = false
+                }
+            )
+            .store(in: &cancellables)
         }
     }
     
