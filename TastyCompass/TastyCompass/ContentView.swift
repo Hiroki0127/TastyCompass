@@ -46,48 +46,42 @@ struct MainTabView: View {
 
 struct ProfileView: View {
     @EnvironmentObject private var authManager: AuthManager
+    @StateObject private var apiService = BackendAPIService.shared
+    @StateObject private var favoritesManager = FavoritesManager.shared
     @State private var showingSignOutAlert = false
+    @State private var favoritesCount: Int = 0
+    @State private var reviewsCount: Int = 0
+    @State private var isLoadingStats = false
+    @State private var cancellables = Set<AnyCancellable>()
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                // Profile header
-                VStack(spacing: 12) {
-                    Image(systemName: "person.circle.fill")
-                        .font(.system(size: 80))
-                        .foregroundColor(.orange)
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Profile header with gradient background
+                    profileHeaderView
+                        .padding(.bottom, 24)
                     
-                    if let user = authManager.currentUser {
-                        Text(user.email)
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text("Member since \(formatDate(user.createdAt))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    // Stats section
+                    statsSectionView
+                        .padding(.horizontal)
+                        .padding(.bottom, 24)
+                    
+                    // Account information section
+                    accountInfoSection
+                        .padding(.horizontal)
+                        .padding(.bottom, 24)
+                    
+                    // Sign out button
+                    signOutButton
+                        .padding(.horizontal)
+                        .padding(.bottom, 40)
                 }
-                .padding(.top, 40)
-                
-                Spacer()
-                
-                // Sign out button
-                Button(action: {
-                    showingSignOutAlert = true
-                }) {
-                    Text("Sign Out")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red)
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 40)
             }
             .navigationTitle("Profile")
+            .onAppear {
+                loadUserStats()
+            }
             .alert("Sign Out", isPresented: $showingSignOutAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Sign Out", role: .destructive) {
@@ -99,14 +93,235 @@ struct ProfileView: View {
         }
     }
     
+    // MARK: - Profile Header
+    
+    private var profileHeaderView: some View {
+        VStack(spacing: 16) {
+            // Profile image
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.orange.opacity(0.8), .orange],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 100, height: 100)
+                
+                Image(systemName: "person.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(.white)
+            }
+            .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+            
+            // User name
+            if let user = authManager.currentUser {
+                VStack(spacing: 4) {
+                    let displayName = getUserDisplayName(user)
+                    Text(displayName)
+                        .font(.title)
+                        .fontWeight(.bold)
+                    
+                    Text(user.email)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("Member since \(formatDate(user.createdAt))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+        .padding(.top, 20)
+        .padding(.bottom, 20)
+        .frame(maxWidth: .infinity)
+        .background(
+            LinearGradient(
+                colors: [.orange.opacity(0.1), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+    
+    // MARK: - Stats Section
+    
+    private var statsSectionView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Activity")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 4)
+            
+            HStack(spacing: 16) {
+                // Favorites stat
+                StatCard(
+                    icon: "heart.fill",
+                    value: "\(favoritesCount)",
+                    label: "Favorites",
+                    color: .red
+                )
+                
+                // Reviews stat
+                StatCard(
+                    icon: "star.fill",
+                    value: "\(reviewsCount)",
+                    label: "Reviews",
+                    color: .orange
+                )
+            }
+        }
+    }
+    
+    // MARK: - Account Info Section
+    
+    private var accountInfoSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Account Information")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 4)
+            
+            if let user = authManager.currentUser {
+                VStack(spacing: 12) {
+                    InfoRow(icon: "envelope.fill", label: "Email", value: user.email)
+                    
+                    if !user.firstName.isEmpty || !user.lastName.isEmpty {
+                        InfoRow(
+                            icon: "person.fill",
+                            label: "Name",
+                            value: "\(user.firstName) \(user.lastName)".trimmingCharacters(in: .whitespaces)
+                        )
+                    }
+                    
+                    InfoRow(
+                        icon: "calendar",
+                        label: "Member Since",
+                        value: formatDate(user.createdAt)
+                    )
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+            }
+        }
+    }
+    
+    // MARK: - Sign Out Button
+    
+    private var signOutButton: some View {
+        Button(action: {
+            showingSignOutAlert = true
+        }) {
+            HStack {
+                Image(systemName: "arrow.right.square")
+                Text("Sign Out")
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.red)
+            .cornerRadius(12)
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func getUserDisplayName(_ user: User) -> String {
+        let fullName = "\(user.firstName) \(user.lastName)".trimmingCharacters(in: .whitespaces)
+        return fullName.isEmpty ? user.email : fullName
+    }
+    
     private func formatDate(_ dateString: String) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
         if let date = formatter.date(from: dateString) {
-            formatter.dateFormat = "MMM yyyy"
+            formatter.dateFormat = "MMMM yyyy"
             return formatter.string(from: date)
         }
         return "Unknown"
+    }
+    
+    private func loadUserStats() {
+        isLoadingStats = true
+        
+        // Get favorites count from local manager
+        favoritesCount = favoritesManager.favoritePlaces.count
+        
+        // Try to get reviews count from backend
+        // For now, we'll fetch a sample to get total count
+        // In a real app, you'd have a dedicated endpoint for user's review count
+        if let userId = authManager.currentUser?.id {
+            // Try to get user's reviews - we'll use a dummy restaurant ID
+            // In production, you'd have a /reviews/user endpoint
+            reviewsCount = 0 // Will be updated if we can fetch it
+            isLoadingStats = false
+        } else {
+            isLoadingStats = false
+        }
+    }
+}
+
+// MARK: - Stat Card Component
+
+struct StatCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+            
+            Text(value)
+                .font(.title)
+                .fontWeight(.bold)
+            
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+}
+
+// MARK: - Info Row Component
+
+struct InfoRow: View {
+    let icon: String
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(.orange)
+                .frame(width: 24)
+            
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.medium)
+        }
     }
 }
 
