@@ -113,7 +113,8 @@ class GooglePlacesAPIService: ObservableObject {
     ) -> AnyPublisher<[Place], Error> {
         // For city search, we'll use a default location (city center)
         // In a real app, you might want to geocode the city first
-        let defaultLocation = CLLocation(latitude: 37.7749, longitude: -122.4194) // San Francisco default
+        // Default to Toronto coordinates
+        let defaultLocation = CLLocation(latitude: 43.6532, longitude: -79.3832) // Toronto default
         
         let parameters = GoogleSearchParameters(
             location: "\(defaultLocation.coordinate.latitude),\(defaultLocation.coordinate.longitude)",

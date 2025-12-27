@@ -328,8 +328,9 @@ struct SearchView: View {
         print("📍 Current location: \(locationManager.currentLocation?.description ?? "No location")")
         print("🔑 API Key configured: \(!ConfigurationManager.shared.googlePlacesAPIKey.isEmpty)")
         
+        // Check if we have location
         if let location = locationManager.currentLocation {
-            print("📍 Using location-based search")
+            print("📍 Using location-based search at: \(location.coordinate.latitude), \(location.coordinate.longitude)")
             // Search by location
             apiService.searchRestaurants(
                 with: currentFilter,
@@ -342,7 +343,7 @@ struct SearchView: View {
                     isLoading = false
                     if case .failure(let error) = completion {
                         print("❌ Location search failed: \(error)")
-                        errorMessage = "Location search failed: \(error.localizedDescription)"
+                        errorMessage = "Search failed: \(error.localizedDescription)"
                     }
                 },
                 receiveValue: { places in
@@ -353,30 +354,35 @@ struct SearchView: View {
             )
             .store(in: &cancellables)
         } else {
-            print("🏙️ Using city-based search (San Francisco)")
-            // Fallback to city search - create a San Francisco location
-            let sanFranciscoLocation = CLLocation(latitude: 37.7749, longitude: -122.4194)
-            apiService.searchRestaurants(
-                with: currentFilter,
-                near: sanFranciscoLocation,
-                query: searchText.isEmpty ? nil : searchText
-            )
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { completion in
-                    isLoading = false
-                    if case .failure(let error) = completion {
-                        print("❌ City search failed: \(error)")
-                        errorMessage = "City search failed: \(error.localizedDescription)"
+            // No location available - request permission or show error
+            print("⚠️ No location available")
+            isLoading = false
+            
+            // Check authorization status
+            switch locationManager.authorizationStatus {
+            case .notDetermined:
+                // Request permission first
+                requestLocationPermission()
+                errorMessage = "Location permission needed. Please allow location access to find nearby restaurants."
+            case .denied, .restricted:
+                errorMessage = "Location access denied. Please enable location services in Settings to find nearby restaurants."
+            default:
+                // Permission granted but location not available yet - wait a bit
+                errorMessage = "Getting your location... Please wait a moment and try again."
+                // Try to get location
+                locationManager.requestPermission { granted in
+                    if granted {
+                        // Wait for location update
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            if locationManager.currentLocation != nil {
+                                performSearch()
+                            } else {
+                                errorMessage = "Unable to get your location. Please check your location settings."
+                            }
+                        }
                     }
-                },
-                receiveValue: { places in
-                    print("✅ Found \(places.count) restaurants in San Francisco")
-                    restaurants = places
-                    isLoading = false
                 }
-            )
-            .store(in: &cancellables)
+            }
         }
     }
     
