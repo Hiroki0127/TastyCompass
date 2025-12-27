@@ -438,7 +438,7 @@ struct ReviewStatsView: View {
 
 // MARK: - Preview
 
-#Preview {
+#Preview("Review Components") {
     VStack(spacing: 20) {
         // Review row
         ReviewRowView(

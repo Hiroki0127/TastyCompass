@@ -9,15 +9,13 @@ class BackendAPIService: ObservableObject {
     private let baseURL: String
     private let session = URLSession.shared
     
+    // Auth token for authenticated requests
+    @Published var authToken: String?
+    
     init() {
         self.baseURL = ConfigurationManager.shared.backendAPIURL
         print("🌐 Backend API URL: \(self.baseURL)")
     }
-    
-    // Auth token for authenticated requests
-    @Published var authToken: String?
-    
-    init() {}
     
     // MARK: - Authentication
     
